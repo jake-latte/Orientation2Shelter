@@ -19,9 +19,13 @@ import matplotlib.pyplot as plt
 
 import Tasks
 
+from typing import List, Any, Union
+
+import torch.multiprocessing as mp
+
 
 ############################################################################################################################################
-################################################################ TRAIN #####################################################################
+################################################################ BUILD #####################################################################
 ############################################################################################################################################
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
@@ -34,12 +38,16 @@ build
 Creates, trains, and tests model from start to finish
 ---------------------------------------------------------------------------------------------
 Receives
-    config :
-        Configuration object for the build
-    max_hours :
-        Number of hours at which to terminate process
-    kwargs :
-        other kwargs which can override config parameters
+    task :
+        Task to which model pertains
+    net (optional) :
+        If continuing previous build, initialised model from that build
+    optimiser (optional) :
+        If continuing previous build, initialised optimiser from that build
+    train_losses (optional) :
+        If continuing previous build, training losses from that build
+    test_losses (optional) :
+        If continuing previous build, testing losses from that build
 
 Returns
     None
@@ -48,22 +56,24 @@ To disk
     config.savedir/
     ----<start time>-<config.name>/
         Build directory
-    --------threshold:<T>/
-            Checkpoint directory, where checkpoint is defined as the model exceeding some loss 
-            threshold T after E weight epochs, with loss L at last update
-    ------------epoch:<E>-loss:<L>.pt
-                PyTorch-saved dictionary at threshold checkpoint
+    --------checkpoint-<KEY>:<VALUE>/
+            Checkpoint directory, where checkpoint is defined as the model satisfying some checkpoint
+            Checkpoints are key:value pairs; can be surpassing some epoch number, converging to some loss, or falling
+            below some loss
+    ------------net.pt
+                PyTorch dictionary at checkpoint
                 Contains :
                     net_state_dict : state_dict of model
                     optimiser_state_dict : state_dict of model optimiser
-                    loss : list of losses during training up to checkpoint
+                    train_losses : list of losses during training up to checkpoint
+                    test_losses : list of losses during testing up to checkpoint
                     config : dict of build config parameters
     ------------<PLOT>.png
                 PNG files of PLOT derived from model with test dataset at checkpoint (see test)
 
 '''
 
-def build(task, net=None, optimiser=None, train_losses=None, test_losses=None):
+def build(task: Task, net: RNN = None, optimiser: torch.optim.Optimizer = None, train_losses: List[float] = None, test_losses: List[float] = None):
     config = task.config
     config.seed()
     torch.manual_seed(config.build_seed)
@@ -76,17 +86,14 @@ def build(task, net=None, optimiser=None, train_losses=None, test_losses=None):
     # Define time at which to terminate training as max_hours from start timne
     killtime = time.time() + (config.max_hours * 60 * 60)
 
-    print(f'Build: {build_dir}')
+    print(f'{task.config.device} build: {build_dir}')
 
-    print(f'\n{"-"*25} CONFIG {"-"*25}\n')
-    for key, val in config.__dict__.items():
-        flag = '\t' if val == task_register[config.task].config[key] else '  ****  '
-        print(f'{flag}{key}: {val}')
-    print('-'*58)
+    if 'cuda:' not in str(task.config.device) or 'cuda:0' == task.config.device:
+        print(config)
     
     
 
-    # Initialise model according to build configuration
+    # Initialise model and optimiser according to build configuration (if not already supplied)
     if net is None:
         if task.config.rank is not None:
             print(f'Using low-rank network of rank {task.config.rank}')
@@ -94,9 +101,8 @@ def build(task, net=None, optimiser=None, train_losses=None, test_losses=None):
         else:
             net = RNN(config)
 
-    # Initialise optimiser according to build training algorithm
     if optimiser is None:
-        if config.optimiser_name == 'Adam' or config.optimiser_name == 'AdamHF':
+        if config.optimiser_name == 'Adam':
             optimiser = torch.optim.Adam(net.parameters(), lr=config.max_lr)
         elif config.optimiser_name == 'AdamW':
             optimiser = torch.optim.AdamW(net.parameters(), lr=config.max_lr)
@@ -104,29 +110,31 @@ def build(task, net=None, optimiser=None, train_losses=None, test_losses=None):
             optimiser = HessianFree(net.parameters(), lr=config.max_lr,
                                     damping=config.HF_damping,delta_decay=config.HF_delta_decay,cg_max_iter=config.HF_cg_max_iter,verbose=False)
         else:
-            raise Exception('Invalid optimiser_name: use Adam, AdamW, HF/HessianFree, or AdamHF')
+            raise Exception('Invalid optimiser_name: use Adam, AdamW, HF/HessianFree')
 
+    # Intialise loader for training data, and one fixed batch for testing data
     train_dataset = TaskDataset(task, for_training=True)
     train_batch_loader = DataLoader(train_dataset, batch_size=config.batch_size, num_workers=config.num_loader_workers, collate_fn=train_dataset.collate_fn)
 
     test_dataset = TaskDataset(task, for_training=False)
     test_batch = test_dataset.get_batch()
 
-    # Private func to compute loss on test set
-    def _get_test_loss():
+    # Private function to compute loss on test set
+    def _get_test_loss() -> float:
         with torch.no_grad():
             loss,_ = task.get_loss(net=net, batch=test_batch)
             return loss.item()
         
-    # Initialise variable to keep track of performance on test dataset
+    # Initialise lists for tracking losses (and get an initial loss)
     if train_losses is None:
         train_losses = []
     if test_losses is None:
         test_losses = [_get_test_loss()]
 
-    print('\nTest dataset loss without training: {}\n'.format(round(test_losses[-1], 4)))
+    print(f'\n({task.config.device}) Test dataset loss without training: {test_losses[-1]:.4f}\n')
 
-    def _save_checkpoint(key, value, test=False):
+    # Private function for saving a checkpoint for some key-value
+    def _save_checkpoint(key: str, value: Union[int, float], test: bool = False):
         # Define file structure for checkpoint (create directories if this is first checkpoint)
         checkpoint_dir = f'{build_dir}/checkpoint-{key}:{value}'
         if not os.path.isdir(checkpoint_dir):
@@ -144,8 +152,9 @@ def build(task, net=None, optimiser=None, train_losses=None, test_losses=None):
         }
         
         torch.save(checkpoint, checkpoint_filepath)
-        print(f'- Saved model for checkpoint {key}={value}')
+        print(f'- ({task.config.device}) Saved model for checkpoint {key}={value}')
 
+        # If testing, use task-specific testing function to generate plots and save them to checkpoint
         if test:
             with torch.no_grad():
                 test_result = task.test_func(task=task, net=net, batch=test_batch, checkpoint_path=checkpoint_filepath, **task.test_func_args)
@@ -155,11 +164,15 @@ def build(task, net=None, optimiser=None, train_losses=None, test_losses=None):
                         if type(val) == matplotlib.figure.Figure:
                             plt.close(val)
     
-    if config.save_initial_net:
+    # If so desired (not by default), save initial net
+    if config.save_initial_net and len(train_losses)==0:
         _save_checkpoint('epochs', 0)
 
     
+    # Private function for updating learning rate according to schedule
     def _update_learning_rate(epoch=0):
+        # If no fixed-duration of training is set, learning rate is scheduled according to loss
+        # It will decrease according to config.lr_anneal_schedule as the loss approaches some minimum (usually 0)
         if config.n_epochs <= 0:
             if len(test_losses) >= 2:
                 p = config.lr_anneal_schedule
@@ -169,6 +182,8 @@ def build(task, net=None, optimiser=None, train_losses=None, test_losses=None):
             else:
                 lr = config.max_lr
             
+        # If there is a fixed duration for training, then learning rate is scheduled according to epoch
+        # Initially it will increase from a minimum to a maximum, and then it will anneal back to the minimum
         else:
             n = config.lr_initial_schedule
             lam = config.lr_anneal_schedule
@@ -176,7 +191,8 @@ def build(task, net=None, optimiser=None, train_losses=None, test_losses=None):
             m = config.min_lr
             t = epoch
             lr = M * np.exp(n) * (lam / n)**n * t**n * np.exp(-lam * t) + m
-
+        
+        # How learning rate is updated depends on which optimiser is being used
         if 'lr' in optimiser.param_groups[0]:
             optimiser.param_groups[0]['lr'] = lr
         if 'alpha' in optimiser.param_groups[0]:
@@ -184,9 +200,11 @@ def build(task, net=None, optimiser=None, train_losses=None, test_losses=None):
 
     _update_learning_rate()
 
+    # For convenience, convert loss thresholds at which to save into a numpy array
     save_at_losses = np.array(config.save_losses)
+    # If build is continuing from a previous build, use the directory to see which loss thresholds already have checkpoints
     if os.path.isdir(build_dir):
-        saved_losses = []
+        saved_losses = [1e9]
         for dirname in os.listdir(build_dir):
             if 'checkpoint-loss' in dirname:
                 loss = float(dirname.split(':')[-1])
@@ -196,9 +214,10 @@ def build(task, net=None, optimiser=None, train_losses=None, test_losses=None):
     else:
         saved_losses = np.array([])
 
+    # And similarly for which epochs already have checkpoints
     save_at_epochs = config.save_epochs
     if os.path.isdir(build_dir):
-        saved_epochs = []
+        saved_epochs = [0]
         for dirname in os.listdir(build_dir):
             if 'checkpoint-epochs' in dirname:
                 epoch = int(dirname.split(':')[-1])
@@ -209,50 +228,49 @@ def build(task, net=None, optimiser=None, train_losses=None, test_losses=None):
         saved_epochs = np.array([0])
 
     start_time = time.time()
-    optimiser_swapped = False
+    # Offset for epoch number of build is continuing from a previous build
     epoch_offset = len(train_losses) // ((config.batch_size // config.minibatch_size) * config.num_batch_repeats)
     for epoch, epoch_losses in train(task, net, train_batch_loader, optimiser, n_epochs=config.n_epochs, killtime=killtime):
+        epoch += epoch_offset
         train_losses += epoch_losses
 
-        # Exit conditions for threshold-based
+        # Exit conditions
         if config.n_epochs <= 0:
+            # Loss goal exceeded
             if test_losses[-1] <= config.training_threshold:
-                print('Build completed')
+                print(f'({task.config.device}) build completed')
                 break
-
+            # Loss converges
             if len(train_losses) >= config.training_convergence_std_threshold_window:
                 training_window_std = np.std(train_losses[-config.training_convergence_std_threshold_window:])
-                print(f'-Training window std. dev.: {training_window_std}')
+                print(f'-({task.config.device}) Training window std. dev.: {training_window_std:.4E}')
 
                 if training_window_std < config.training_convergence_std_threshold:
                     _save_checkpoint(key='loss', value=np.round(test_losses[-1], 2), test=True)
-                    print('Build converged')
+                    print(f'({task.config.device}) build converged')
                     break
 
+        # If on testing epoch, test model and report
         if epoch % config.test_epochs == 0:
             test_losses.append(_get_test_loss())
-            print('- Test dataset loss after {} epochs ({} updates): {}'.format(
-                epoch, len(train_losses), round(test_losses[-1], 4)))
-            print('- Total time elapsed: {}'.format(datetime.timedelta(seconds=time.time() - start_time)))
+            print('- ({}) test dataset loss after {} epochs ({} updates): {:.4f}'.format(
+                task.config.device, epoch, len(train_losses), test_losses[-1], 4))
+            print('- ({}) Total time elapsed: {}'.format(task.config.device, datetime.timedelta(seconds=time.time() - start_time)))
 
 
         # Save conditions
         thresholds_met = save_at_losses[test_losses[-1] <= save_at_losses]
         threshold = None if len(thresholds_met)==0 else np.min(thresholds_met)
 
+        # If a new loss checkpoint has been surpassed, save
         if threshold is not None and threshold not in saved_losses:
             saved_losses = np.append(saved_losses, threshold)
             _save_checkpoint(key='loss', value=threshold, test=False)
 
+        # If on a save epoch, save
         if epoch - saved_epochs[-1] >= save_at_epochs:
             saved_epochs = np.append(saved_epochs, epoch - (epoch%save_at_epochs))
             _save_checkpoint(key='epochs', value=saved_epochs[-1], test=False)
-            
-        if not optimiser_swapped and config.optimiser_name == 'AdamHF':
-            if test_losses[-1] < 0.1:
-                optimiser_swapped = True
-                optimiser = HessianFree(net.parameters(), lr=optimiser.lr,
-                                        damping=config.HF_damping,delta_decay=config.HF_delta_decay,cg_max_iter=config.HF_cg_max_iter,verbose=False)
 
 
         _update_learning_rate(epoch=epoch+epoch_offset)
@@ -269,33 +287,130 @@ def build(task, net=None, optimiser=None, train_losses=None, test_losses=None):
 
 
 
+'''
+build_from_command_line
+Parses command line args into build parameters before building
+---------------------------------------------------------------------------------------------
+
+Assumes command line input of the format:
+
+python3 -m build <TASK_NAME> -<KEY> <VALUE> -<KEY> <VALUE>
+where TASK_NAME is a task name defined in one of the task files in Tasks
+      KEY and VALUE are optional flag pairs and represent config settings (e.g. -n_neurons 100)
+-N can be included after TASK_NAME or a VALUE to indicate that the following settings should not be included in the
+    build name
+-c <FILEPATH> can be included after TASK_NAME to indicate a build should continue from the checkpoint found at 
+    FILEPATH (must end in .pt) (cannot be used with -N)
+-P before a KEY indicates that the following parameter can take on multiple values, and these should be trained on all available GPUs in parallel
+    e.g. -P -n_neurons 10 100 1000 would train three models on three GPUs, with 10, 100, and 1000 neurons respectively
+    if only one value is supplied, then multiple copies of the same model will be trained in paralle, equal to the number of GPUs available
+
+'''
+
+def build_from_command_line():
+    args = sys.argv
+    assert len(args) >= 2
+
+    task_name = args[1]
+
+    # Extract task object from first argument
+    task = None
+    try:
+        task = task_register[task_name].copy()
+    except:
+        raise ValueError(f'{task_name} is not a defined task name.')
 
 
-def build_from_command_line(task, args):
+    net, optimiser, train_losses, test_losses = None, None, None, None
+
     if len(args) > 1:
         params = {}
-        name_param_keys = []
+        name_param_keys = set()
         include = True
+        parallel_param_settings = {}
+
         for arg_i in range(1, len(args)):
+
+            # -N flag indicates parameters should stop being included in build name
             if args[arg_i] == '-N':
+                assert '-c' not in args
+
                 include = False
                 continue
 
-            if args[arg_i][0] == '-':
-                key, value = args[arg_i][1:], args[arg_i+1]
+            # If contunuing a previous build:
+            elif args[arg_i] == '-c':
+                assert '-P' not in args
+                assert arg_i==2
+
+                device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+                # Load checkpoint from specified path
+                checkpoint = None
+                try:
+                    checkpoint = torch.load(args[arg_i+1], map_location=device)
+                except Exception as e:
+                    print(f'Checkpoint load failed: {e}')
+
+                # Update device being trained on
+                checkpoint['config']['device'] = device
+                
+                # Get task from checkpoint
+                task = Task.from_checkpoint(checkpoint)
+
+                # Get model from checkpoint
+                if task.config.rank is not None:
+                    net = LowRankRNN(task.config, rank=int(task.config.rank))
+                else:
+                    net = RNN(task.config)
+                net.load_state_dict(checkpoint['net_state_dict'])
+
+                # Get optimiser from checkpoint
+                if '-optimiser_name' in args:
+                    task.config.update(optimiser_name = args[args.index('-optimiser_name')+1])
+                if task.config.optimiser_name == 'Adam':
+                    optimiser = torch.optim.Adam(net.parameters(), lr=task.config.max_lr)
+                elif task.config.optimiser_name == 'AdamW':
+                    optimiser = torch.optim.AdamW(net.parameters(), lr=task.config.max_lr)
+                elif task.config.optimiser_name == 'HF' or task.config.optimiser_name == 'HessianFree':
+                    optimiser = HessianFree(net.parameters(), lr=task.config.max_lr,
+                                            damping=task.config.HF_damping,delta_decay=task.config.HF_delta_decay,cg_max_iter=task.config.HF_cg_max_iter,verbose=False)
+                if task.config.optimiser_name == checkpoint['config']['optimiser_name']:
+                    optimiser.load_state_dict(checkpoint['optimiser_state_dict'])
+
+                # Get losses from checkpoint
+                train_losses = checkpoint['train_losses']
+                test_losses = checkpoint['test_losses']
+
+            # Otherwise, an argument prefixed with '-' indicates a config parameter
+            # Attempt to save this parameter to task config (type must match default value)
+            elif args[arg_i][0] == '-':
+                if args[arg_i] == '-P':
+                    key, value = args[arg_i+1][1:], None
+                    parallel_param_settings[key] = []
+                else:
+                    key, value = args[arg_i][1:], args[arg_i+1]
                 
                 if key in task.config.__dict__:
                     try:
                         type_cast = type(task.config.__dict__[key])
-                        if type_cast == type(True):
-                            value = False if 'f' in value.lower() else True
-                        elif task.config.__dict__[key] is None:
-                            params[key] = value
-                            continue
-                        params[key] = type_cast(value)
 
-                        if include:
-                            name_param_keys.append(key)
+                        if args[arg_i] == '-P':
+                            for value in args[arg_i+2:]:
+                                if value[0] == '-':
+                                    break
+                                else:
+                                    parallel_param_settings[key].append(type_cast(value))
+                        else:
+                            if type_cast == type(True):
+                                value = False if 'f' in value.lower() else True
+                            elif task.config.__dict__[key] is None:
+                                params[key] = value
+                                continue
+                            params[key] = type_cast(value)
+
+                            if include:
+                                name_param_keys.add(key)
                     except Exception as e:
                         print(f'Setting parameter {key} failed: {e}')
                         continue
@@ -304,38 +419,44 @@ def build_from_command_line(task, args):
                     continue
 
         task.config.update(**params)
-        task.config.make_name(include=name_param_keys)
+        if '-c' not in args:
+            task.config.make_name(include=name_param_keys)
 
-    build(task)
-    
+        if '-P' in args:
+            mp.set_start_method('spawn')
 
-def build_from_checkpoint(checkpoint_filepath):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    checkpoint = torch.load(checkpoint_filepath, map_location=device)
-    checkpoint['config']['device'] = device
-    
-    task = Task.from_checkpoint(checkpoint)
+            is_equal, num_models = True, 0
+            for key in parallel_param_settings.keys():
+                num_models = len(parallel_param_settings[key])
+                if key not in name_param_keys:
+                    name_param_keys.add(key)
+                for other_key in parallel_param_settings.keys():
+                    if key != other_key:
+                        is_equal = is_equal and len(parallel_param_settings[key]) == len(parallel_param_settings[other_key])
+            assert is_equal
+            # assert num_models == torch.cuda.device_count()
 
-    if task.config.rank is not None:
-        net = LowRankRNN(task.config, rank=int(task.config.rank))
-    else:
-        net = RNN(task.config)
-    net.load_state_dict(checkpoint['net_state_dict'])
+            task.config.seed()
 
-    # Initialise optimiser according to build training algorithm
-    if task.config.optimiser_name == 'Adam':
-        optimiser = torch.optim.Adam(net.parameters(), lr=task.config.max_lr)
-    elif task.config.optimiser_name == 'AdamW':
-        optimiser = torch.optim.AdamW(net.parameters(), lr=task.config.max_lr)
-    elif task.config.optimiser_name == 'HF' or task.config.optimiser_name == 'HessianFree':
-        optimiser = HessianFree(net.parameters(), lr=task.config.max_lr,
-                                damping=task.config.HF_damping,delta_decay=task.config.HF_delta_decay,cg_max_iter=task.config.HF_cg_max_iter,verbose=False)
-    optimiser.load_state_dict(checkpoint['optimiser_state_dict'])
+            processes = []
+            for i in range(num_models):
+                parallel_task = task.copy()
+                for key, vals in parallel_param_settings.items():
+                    parallel_task.config.__dict__[key] = vals[i]
+                    parallel_task.config.__dict__['device'] = f'cuda:{i % torch.cuda.device_count()}'
+                    parallel_task.config.__dict__['time'] = task.config.time
+                parallel_task.config.make_name(include=name_param_keys)
 
-    train_losses = checkpoint['train_losses']
-    test_losses = checkpoint['test_losses']
+                p = mp.Process(target=build, args=(parallel_task,))
+                p.start()
+                processes.append(p)
 
-    build(task, net=net, optimiser=optimiser, train_losses=train_losses, test_losses=test_losses)
+            for p in processes:
+                p.join()
+
+        else:
+
+            build(task, net=net, optimiser=optimiser, train_losses=train_losses, test_losses=test_losses)
 
 
     
@@ -343,21 +464,5 @@ def build_from_checkpoint(checkpoint_filepath):
 
 if __name__ == '__main__': 
     import Tasks
-
-    assert len(sys.argv) >= 2
-
-    if '-c' in sys.argv:
-        build_from_checkpoint(sys.argv[-1])
-    else:
-
-        task_name = sys.argv[1]
-
-        task = None
-        try:
-            task = task_register[task_name].copy()
-
-        except:
-            raise ValueError(f'{task_name} is not a defined task name.')
-        
-        if task is not None:
-            build_from_command_line(task, sys.argv)
+    
+    build_from_command_line()

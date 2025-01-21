@@ -1,12 +1,10 @@
 import torch
 
-import sys
-
-from ratinabox.Environment import Environment
-from ratinabox.Agent import Agent
+from typing import Dict, Tuple
 
 from task import *
 from build import *
+from config import *
 from test_funcs import *
 
 
@@ -16,7 +14,6 @@ default_params = {
     'v_step_shape': 2,
     'v_step_scale': 0.005,
     'v_step_momentum': 0.3,
-    'v_step_hd_bias': 0.005,
     'v_step_zero_prob': 0.5,
     'n_timesteps': 1000
 }
@@ -48,7 +45,7 @@ def create_data(config, for_training=True):
     pos_0 = torch.tile(pos_0, dims=(1, n_timesteps, 1))
     pos, vel = pos_0, torch.zeros((batch_size, n_timesteps))
 
-    zero_trials = torch.where(torch.rand((batch_size,)) < config.v_step_zero_prob)
+    zero_trials = torch.rand((batch_size,)) < config.v_step_zero_prob
 
     normal = torch.distributions.normal.Normal(loc=torch.zeros((batch_size,)), scale=torch.ones((batch_size,))*av_step_std)
     gamma = torch.distributions.gamma.Gamma(concentration=torch.ones((batch_size,))*v_step_shape, rate=torch.ones((batch_size,))/v_step_scale)    
@@ -65,33 +62,48 @@ def create_data(config, for_training=True):
         HD[:, t:] += torch.tile(av_step.reshape((batch_size,1)), dims=(1, n_timesteps-t))
 
         v_step = gamma.sample() + v_step_momentum * vel[:, t-1] 
-        # if t > n_timesteps*(1/4) and t < n_timesteps*(3/4):
-        #     v_step[zero_trials] = 0
+        if t > n_timesteps*(1/4) and t < n_timesteps*(3/4):
+            v_step[zero_trials] = 0
 
         xv_step = torch.cos(HD[:, t]) * v_step
         yv_step = torch.sin(HD[:, t]) * v_step
 
-        xv_step = torch.where(xv_step > max_xv_step, torch.ones((batch_size,)), xv_step)
-        xv_step = torch.where(xv_step < min_xv_step, -torch.ones((batch_size,)), xv_step)
-        yv_step = torch.where(yv_step > max_yv_step, torch.ones((batch_size,)), yv_step)
-        yv_step = torch.where(yv_step < min_yv_step, -torch.ones((batch_size,)), yv_step)
+        # Compute the maximum scaling factors for x and y bounds
+        max_k_x = torch.where(
+            xv_step > 0,
+            (1 - pos[:,t,0]) / xv_step,  # Positive direction
+            (pos[:,t,0] + 1) / -xv_step  # Negative direction
+        )
 
-        vel[:, t] = torch.sqrt(xv_step**2 + yv_step**2)
+        max_k_y = torch.where(
+            yv_step > 0,
+            (1 - pos[:,t,1]) / yv_step,  # Positive direction
+            (pos[:,t,1] + 1) / -yv_step  # Negative direction
+        )
+
+        # Replace invalid scaling factors with infinity (e.g., division by zero)
+        max_k_x = torch.where(xv_step == 0, torch.full_like(max_k_x, float('inf')), max_k_x)
+        max_k_y = torch.where(yv_step == 0, torch.full_like(max_k_y, float('inf')), max_k_y)
+
+        # Compute the maximum scaling factor k for each agent
+        max_k = torch.minimum(max_k_x, max_k_y)
+
+        # Ensure k is bounded between 0 and 1 (agents cannot scale beyond their velocity or reverse direction)
+        max_k = torch.clamp(max_k, 0, 1)
+
+        v_step = max_k * v_step
+        xv_step = torch.cos(HD[:, t]) * v_step
+        yv_step = torch.sin(HD[:, t]) * v_step
+
+        vel[:, t] = v_step
         pos[:, t:, 0] += torch.tile(xv_step.reshape((batch_size, 1)), dims=(1, n_timesteps - t))
         pos[:, t:, 1] += torch.tile(yv_step.reshape((batch_size, 1)), dims=(1, n_timesteps - t))
 
     HD = torch.remainder(HD, 2*np.pi)
-    pos = torch.clamp(pos, min=-1, max=1)
+    # pos = torch.clamp(pos, min=-1, max=1)
 
-    shelter_x_0 = torch.rand(batch_size)
-    shelter_y_0 = torch.rand(batch_size)
-    shelter_wall_select_probs = torch.rand(batch_size)
-    shelter_wall_select_horizontal = torch.where(shelter_wall_select_probs>0.5)[0]
-    shelter_wall_select_vertical = torch.where(shelter_wall_select_probs<=0.5)[0]
-    shelter_wall_select_directions = torch.randint(low=0, high=2, size=(batch_size,), dtype=shelter_x_0.dtype) * 2 - 1
-
-    shelter_x_0[shelter_wall_select_vertical] = shelter_wall_select_directions[shelter_wall_select_vertical]
-    shelter_y_0[shelter_wall_select_horizontal] = shelter_wall_select_directions[shelter_wall_select_horizontal]
+    shelter_x_0 = 2*torch.rand(batch_size) - 1
+    shelter_y_0 = 2*torch.rand(batch_size) - 1
 
     shelter_x = torch.tile(shelter_x_0.reshape(batch_size,1), dims=(1,n_timesteps))
     shelter_y = torch.tile(shelter_y_0.reshape(batch_size,1), dims=(1,n_timesteps))
@@ -115,10 +127,25 @@ def create_data(config, for_training=True):
         'y': pos[:,:,1],
         'v': vel,
         'sx': shelter_x[:,0],
-        'sy': shelter_y[:,0]
+        'sy': shelter_y[:,0],
+        'zero': zero_trials
     }
 
 
 
+def fill_inputs(config: Config, inputs: torch.Tensor, mask: torch.Tensor, vars: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+    angle_0_duration, batch_size = config.angle_0_duration, inputs.shape[0]
 
+    inputs[:,:,input_map['av']] = vars['av']
+    inputs[:,:angle_0_duration,input_map['sin_hd_0']] = torch.sin(vars['hd'][:,:angle_0_duration])
+    inputs[:,:angle_0_duration,input_map['cos_hd_0']] = torch.cos(vars['hd'][:,:angle_0_duration])
+    inputs[:,:angle_0_duration,input_map['sx']] = vars['sx'].reshape((batch_size,1)).repeat((1,angle_0_duration))
+    inputs[:,:angle_0_duration,input_map['sy']] = vars['sy'].reshape((batch_size,1)).repeat((1,angle_0_duration))
+    inputs[:,:angle_0_duration,input_map['x_0']] = vars['x'][:,0].reshape((batch_size,1)).repeat((1,angle_0_duration))
+    inputs[:,:angle_0_duration,input_map['y_0']] = vars['y'][:,0].reshape((batch_size,1)).repeat((1,angle_0_duration))
+    inputs[:,:,input_map['v']] = vars['v']
+
+    mask[:,:angle_0_duration] = False
+
+    return inputs, mask
 

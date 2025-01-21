@@ -50,5 +50,13 @@ from .PI_HD_SD_2D import *
 from .SD_0D_trans import *
 from .SD_1D_trans import *
 from .SD_2D_trans import *
-
 from .SD_2D_EC import *
+
+from .vars_1D_v2 import *
+from .HD_1D_v2 import *
+from .HD_SD_1D_v2 import *
+from .SD_1D_v2 import *
+from .PI_1D_v2 import *
+from .PI_HD_1D_v2 import *
+from .PI_SD_1D_v2 import *
+from .PI_HD_SD_1D_v2 import *

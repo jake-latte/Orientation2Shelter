@@ -135,8 +135,8 @@ def train(task: Task, net: RNN, batch_loader: torch.utils.data.DataLoader, optim
             lr = optimiser.param_groups[0]['alpha']
 
         # Message console
-        print('Epoch {}\n- Updates: {} (lr={}); Average Loss: {:0.4f}; Time Elapsed: {:0.1f}s'.format(
-            epoch, len(epoch_losses), lr,  np.mean(epoch_losses).item(), time.time() - start_time))
+        print('({}) Epoch: {}; Updates: {} (lr={:.4E}); Average Loss: {:0.4f}; Time Elapsed: {:0.1f}s'.format(
+            config.device, epoch, len(epoch_losses), lr,  np.mean(epoch_losses).item(), time.time() - start_time))
         
         # Yield epoch results (generally to build function) for inter-epoch processing
         yield epoch, epoch_losses

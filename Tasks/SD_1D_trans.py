@@ -34,6 +34,8 @@ def create_data(config, inputs, targets, mask):
     targets[:,:,target_map['sin_sd']] = torch.sin(vars['sd'])
     targets[:,:,target_map['cos_sd']] = torch.cos(vars['sd'])
 
+    mask[:,:config.angle_0_duration] = False
+
     return inputs, targets, vars, mask
 
 

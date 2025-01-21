@@ -1,9 +1,10 @@
 import torch
 
-import sys
+from typing import Dict, Tuple
 
 from task import *
 from build import *
+from config import *
 from test_funcs import test_allo
 
 
@@ -56,3 +57,17 @@ def create_data(config, for_training=True):
     ego_sheler_angle = torch.remainder(ego_sheler_angle, 2 * np.pi)
 
     return {'av': angular_velocity, 'hd': angle, 'sd': ego_sheler_angle, 'sx': torch.cos(allo_shelter_angle_0), 'sy': torch.sin(allo_shelter_angle_0)}
+
+def fill_inputs(config: Config, inputs: torch.Tensor, mask: torch.Tensor, vars: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+    batch_size = inputs.shape[0]
+    angle_0_duration = config.angle_0_duration
+    
+    inputs[:,:,input_map['av']] = vars['av']
+    inputs[:,:angle_0_duration,input_map['sin_hd_0']] = torch.sin(vars['hd'][:,0]).reshape((batch_size,1)).repeat((1,angle_0_duration))
+    inputs[:,:angle_0_duration,input_map['cos_hd_0']] = torch.cos(vars['hd'][:,0]).reshape((batch_size,1)).repeat((1,angle_0_duration))
+    inputs[:,:angle_0_duration,input_map['sx']] = vars['sx'].reshape((batch_size,1)).repeat((1,angle_0_duration))
+    inputs[:,:angle_0_duration,input_map['sy']] = vars['sy'].reshape((batch_size,1)).repeat((1,angle_0_duration))
+
+    mask[:,:angle_0_duration] = False
+
+    return inputs, mask

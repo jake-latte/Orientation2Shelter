@@ -650,70 +650,79 @@ Returns
     matplotlib.figure.Figure :
         Generated figure
 '''
-def manifold_plot(task: Task, activity: np.ndarray, tuning_vars: List[str], tuning_dict: Dict[str, np.ndarray], colour_var_name: str, var_threshold: float = 0.9, max_dim: int = 10, cmap:str = 'plasma'):
+def manifold_plot(task: Task, activity: np.ndarray, tuning_vars: List[str], tuning_dict: Dict[str, np.ndarray], colour_var_name: str, var_threshold: float = 0.9, max_dim: int = 10, cmap: str = 'plasma'):
     n_neurons = activity.shape[2]
     config = task.config
 
+    # Perform PCA on the activity data
     pca = PCA(n_components=max_dim)
-    pca.fit(activity[:,config.angle_0_duration:].reshape((-1,n_neurons)))
+    pca.fit(activity[:, config.angle_0_duration:].reshape((-1, n_neurons)))
 
+    # Determine the number of dimensions needed to explain the variance
     n_dimensions, = np.where(np.cumsum(pca.explained_variance_ratio_) > var_threshold)
     if len(n_dimensions) == 0:
         n_dimensions = max_dim
     else:
-        n_dimensions = n_dimensions[0]+1
+        n_dimensions = n_dimensions[0] + 1
 
+    # Prepare color normalization and bins
     colour_bins = tuning_vars[colour_var_name]['bins']
     cmap = plt.get_cmap(cmap)
     norm = matplotlib.colors.Normalize(vmin=colour_bins[0], vmax=colour_bins[-1])
 
-    fig = plt.figure(figsize=(config.test_fig_width, 2.5*config.test_fig_height))
-    gs = fig.add_gridspec(nrows=n_dimensions+1, ncols=n_dimensions-1, hspace=0.5,
-                          height_ratios=([1] + [0.5 for _ in range(n_dimensions-1)] + [0.1]))
+    # Create the figure and subfigures
+    fig = plt.figure(figsize=(config.test_fig_width, 2.5 * config.test_fig_height))
+    subfigs = fig.subfigures(2, 1, hspace=0, height_ratios=[1, 3])
 
-    pca_ax = fig.add_subplot(gs[0,:])
-    pca_ax.bar(np.arange(1, max_dim+1), pca.explained_variance_ratio_, color='white')
-    pca_ax.bar(np.arange(1, n_dimensions+1), pca.explained_variance_ratio_[:n_dimensions], color=cmap(0.8))
-    pca_ax.vlines(n_dimensions+0.5, ymin=0, ymax=1, linestyle=':', color='gray')
+    # Subfigure 1: PCA explained variance
+    var_fig = subfigs[0]
+    var_fig_ax = var_fig.subplots()
+    var_fig_ax.bar(np.arange(1, max_dim + 1), pca.explained_variance_ratio_, color='white')
+    var_fig_ax.bar(np.arange(1, n_dimensions + 1), pca.explained_variance_ratio_[:n_dimensions], color=cmap(0.8))
+    var_fig_ax.vlines(n_dimensions + 0.5, ymin=0, ymax=1, linestyle=':', color='gray')
 
-    max_var = np.ceil(10*pca.explained_variance_ratio_[0])/10
-    pca_ax.set_ylim([0,max_var])
-    pca_ax.set_xticks(np.arange(1, max_dim+1))
-    pca_ax.set_yticks([0,max_var])
-    pca_ax.set_title('Principal Components Explained Variance', fontsize=20, fontweight='bold')
+    max_var = np.ceil(10 * pca.explained_variance_ratio_[0]) / 10
+    var_fig_ax.set_ylim([0, max_var])
+    var_fig_ax.set_xticks(np.arange(1, max_dim + 1))
+    var_fig_ax.set_yticks([0, max_var])
+    var_fig_ax.set_title('Principal Components Explained Variance', fontsize=20, fontweight='bold')
 
+    # Subfigure 2: Manifold activity
+    manifold_fig = subfigs[1]
+    gs = manifold_fig.add_gridspec(nrows=n_dimensions+1, ncols=n_dimensions-1, hspace=0.5,
+                                   height_ratios=([1] + [0.5 for _ in range(n_dimensions-1)] + [0.1]))
 
     var_activity = tuning_dict[f'{colour_var_name}_tuning']
     var_activity = pca.transform(var_activity.T)
 
     for i, pc_y in enumerate(range(1, n_dimensions)):
-        for j, pc_x in enumerate(range(n_dimensions-1)):
+        for j, pc_x in enumerate(range(n_dimensions - 1)):
             if pc_x >= pc_y:
                 continue
 
-            ax = fig.add_subplot(gs[i+1,j])
-
-            ax.scatter(var_activity[:,pc_x], var_activity[:,pc_y], c=colour_bins, cmap=cmap, norm=norm)
+            ax = manifold_fig.add_subplot(gs[i, j])
+            ax.scatter(var_activity[:, pc_x], var_activity[:, pc_y], c=colour_bins, cmap=cmap, norm=norm)
 
             ax.set_xticks([])
             ax.set_yticks([])
 
-            if i==n_dimensions-2:
-                ax.set_xlabel(f'PC {pc_x+1}')
-            if j==0:
-                ax.set_ylabel(f'PC {pc_y+1}')
+            if i == n_dimensions - 2:
+                ax.set_xlabel(f'PC {pc_x + 1}')
+            if j == 0:
+                ax.set_ylabel(f'PC {pc_y + 1}')
 
-    scale_ax = fig.add_subplot(gs[-1,1:-1])
-    gradient = np.vstack((np.linspace(0,1,len(colour_bins)), np.linspace(0,1,len(colour_bins))))
+    # Add color scale
+    scale_ax = manifold_fig.add_subplot(gs[-1, 1:-1])
+    gradient = np.vstack((np.linspace(0, 1, len(colour_bins)), np.linspace(0, 1, len(colour_bins))))
     scale_ax.imshow(gradient, aspect='auto', cmap=cmap, extent=[colour_bins[0], colour_bins[-1], 0, 1])
     scale_ax.set_yticks([])
     scale_ax.set_xticks([colour_bins[0], colour_bins[-1]])
     scale_ax.set_title(tuning_vars[colour_var_name]['title'], fontsize=20, fontweight='bold')
 
-    fig.suptitle(f'PCA Manifold Activity: {tuning_vars[colour_var_name]["title"]}', fontsize=25, fontweight='bold', y=0.92)
+    # Title for manifold activity subfigure
+    manifold_fig.suptitle(f'Manifold Activity', fontsize=25, fontweight='bold')
 
     return fig
-
 '''
 path_integration_plot
 Create figure with some examples of path integration ability

@@ -14,21 +14,9 @@ target_map = {
 }
 
 def create_data(config, inputs, targets, mask):
-    
-    batch_size = inputs.shape[0]
-    angle_0_duration = config.angle_0_duration
-    input_map = Tasks.vars_2D.input_map
 
     vars = Tasks.vars_2D.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
-
-    inputs[:,:,input_map['av']] = vars['av']
-    inputs[:,:angle_0_duration,input_map['sin_hd_0']] = torch.sin(vars['hd'][:,:angle_0_duration])
-    inputs[:,:angle_0_duration,input_map['cos_hd_0']] = torch.cos(vars['hd'][:,:angle_0_duration])
-    inputs[:,:angle_0_duration,input_map['sx']] = vars['sx'].reshape((batch_size,1)).repeat((1,angle_0_duration))
-    inputs[:,:angle_0_duration,input_map['sy']] = vars['sy'].reshape((batch_size,1)).repeat((1,angle_0_duration))
-    inputs[:,:angle_0_duration,input_map['x_0']] = vars['x'][:,0].reshape((batch_size,1)).repeat((1,angle_0_duration))
-    inputs[:,:angle_0_duration,input_map['y_0']] = vars['y'][:,0].reshape((batch_size,1)).repeat((1,angle_0_duration))
-    inputs[:,:,input_map['v']] = vars['v']
+    inputs, mask = Tasks.vars_2D.fill_inputs(config, inputs, mask, vars)
 
     targets[:,:,target_map['x']] = vars['x']
     targets[:,:,target_map['y']] = vars['y']

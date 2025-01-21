@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 from typing import Dict, Tuple
 
@@ -22,10 +23,9 @@ input_map = {
     'av': 0,
     'sin_hd_0': 1,
     'cos_hd_0': 2,
-    'sx': 3,
-    'sy': 4,
-    'v': 5,
-    'x_0': 6
+    'v': 3,
+    'sin_x_0': 4,
+    'cos_x_0': 4,
 }
 
 
@@ -37,48 +37,32 @@ def create_data(config, for_training=True):
 
     vars = Tasks.vars_0D.create_data(config, for_training=for_training)
 
-    x_0 = torch.rand(batch_size)
-    x_velocity = torch.zeros((batch_size, n_timesteps))
-    x_position = torch.tile(x_0.reshape(batch_size,1), dims=(1,n_timesteps))
+    pos_0 = 2*np.pi*torch.rand(batch_size)
+    velocity = torch.zeros((batch_size, n_timesteps))
+    position = torch.tile(pos_0.reshape(batch_size,1), dims=(1,n_timesteps))
 
     zero_trials = torch.where(torch.rand((batch_size,)) < config.v_step_zero_prob)
 
     for t in range(angle_0_duration, n_timesteps):
         normal = torch.distributions.normal.Normal(loc=v_step_hd_bias*torch.cos(vars['hd'][:,t]), scale=torch.ones((batch_size,))*v_step_std)
 
-        v_step = normal.sample() + v_step_momentum * x_velocity[:,t-1]
+        v_step = normal.sample() + v_step_momentum * velocity[:,t-1]
         if t > n_timesteps*(1/4) and t < n_timesteps*(3/4):
             v_step[zero_trials] = 0
 
-        max_v_step = 1 - x_position[:, t] 
-        min_v_step = -1 - x_position[:, t]
+        velocity[:, t] = v_step
+        position[:, t:] += torch.tile(v_step.reshape((batch_size,1)), dims=(1,n_timesteps-t))
 
-        v_step = torch.where(v_step > max_v_step, max_v_step, v_step)
-        v_step = torch.where(v_step < min_v_step, min_v_step, v_step)
+    position = torch.remainder(position, 2*np.pi)
 
+    allo_shelter_angle = torch.remainder(position - np.pi, 2*np.pi)
+    ego_angle = torch.remainder(allo_shelter_angle - vars['hd'], 2*np.pi)
 
-
-        x_velocity[:, t] = v_step
-        x_position[:, t:] += torch.tile(v_step.reshape((batch_size,1)), dims=(1,n_timesteps-t))
-
-    x_position = torch.clamp(x_position, min=-1, max=1)
-
-    shelter_x = torch.tile(torch.rand(batch_size).reshape(batch_size,1), dims=(1,n_timesteps))
-
-    d_x = shelter_x - x_position
-    d_y = 0.1 * torch.ones_like(d_x)
-    dist = torch.sqrt(d_x**2 + d_y**2)
-    pert = 10e-6 * torch.ones((batch_size,n_timesteps))
-    dist[torch.where(dist==0)[0]] += (pert * np.random.choice([1, -1]))[torch.where(dist==0)[0]]
-    allo_shelter_angle = torch.atan2(d_y, d_x)
-
-    ego_angle = allo_shelter_angle - vars['hd']
-
-    vars['sx'] = shelter_x[:,0]
-    vars['sy'] = 0.1* torch.ones((batch_size,))
+    vars['sx'] = torch.zeros_like(position)
+    vars['sy'] = torch.zeros_like(position)
     vars['sd'] = ego_angle
-    vars['x'] = x_position
-    vars['v'] = x_velocity
+    vars['x'] = position
+    vars['v'] = velocity
 
     return vars
 
@@ -89,14 +73,14 @@ def fill_inputs(config: Config, inputs: torch.Tensor, mask: torch.Tensor, vars: 
     inputs[:,:,input_map['av']] = vars['av']
     inputs[:,:angle_0_duration,input_map['sin_hd_0']] = torch.sin(vars['hd'][:,0]).reshape((batch_size,1)).repeat((1,angle_0_duration))
     inputs[:,:angle_0_duration,input_map['cos_hd_0']] = torch.cos(vars['hd'][:,0]).reshape((batch_size,1)).repeat((1,angle_0_duration))
-    inputs[:,:angle_0_duration,input_map['sx']] = vars['sx'].reshape((batch_size,1)).repeat((1,angle_0_duration))
-    inputs[:,:angle_0_duration,input_map['sy']] = vars['sy'].reshape((batch_size,1)).repeat((1,angle_0_duration))
     inputs[:,:,input_map['v']] = vars['v']
-    inputs[:,:angle_0_duration,input_map['x_0']] = vars['x'][:,0].reshape((batch_size, 1)).repeat((1, angle_0_duration))
+    inputs[:,:angle_0_duration,input_map['sin_x_0']] = torch.sin(vars['x'][:,0].reshape((batch_size, 1)).repeat((1, angle_0_duration)))
+    inputs[:,:angle_0_duration,input_map['cos_x_0']] = torch.cos(vars['x'][:,0].reshape((batch_size, 1)).repeat((1, angle_0_duration)))
 
     mask[:,:angle_0_duration] = False
 
     return inputs, mask
+
 
 
 

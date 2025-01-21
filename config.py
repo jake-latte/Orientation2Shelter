@@ -5,8 +5,6 @@ import time
 
 from typing import Set
 
-from task import task_register
-
 
 ############################################################################################################################################
 ######################################################## CONFIGURATION #####################################################################
@@ -107,7 +105,7 @@ class Config:
 
         res = f'\n{"-"*25} CONFIG {"-"*25}\n'
         for key, val in self.__dict__.items():
-            flag = '\t' if val == task_register[self.task].config[key] else '  ****  '
+            flag = '\t'
             res += (f'{flag}{key}: {val}\n')
         res += ('\n' + '-'*58)
 

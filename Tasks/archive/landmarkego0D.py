@@ -24,7 +24,7 @@ input_map = {
 def create_data(config, inputs, targets, mask):
     # Create local copies of parameter properties (for brevity's sake)
     batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
-    angle_0_duration = config.angle_0_duration
+    init_duration = config.init_duration
     
     inputs, targets, mask = Tasks.allo0D.create_data(config, inputs, targets, mask)
 
@@ -48,10 +48,10 @@ def create_data(config, inputs, targets, mask):
 
     inputs = np.zeros_like(inputs)
 
-    inputs[:,:angle_0_duration,0] = torch.sin(allo_head_angle_0).reshape((batch_size,1)).repeat((1,angle_0_duration))
-    inputs[:,:angle_0_duration,1] = torch.cos(allo_head_angle_0).reshape((batch_size,1)).repeat((1,angle_0_duration))
-    inputs[:,:angle_0_duration,2] = torch.sin(allo_shelter_angle_0).reshape((batch_size,1)).repeat((1,angle_0_duration))
-    inputs[:,:angle_0_duration,3] = torch.cos(allo_shelter_angle_0).reshape((batch_size,1)).repeat((1,angle_0_duration))
+    inputs[:,:init_duration,0] = torch.sin(allo_head_angle_0).reshape((batch_size,1)).repeat((1,init_duration))
+    inputs[:,:init_duration,1] = torch.cos(allo_head_angle_0).reshape((batch_size,1)).repeat((1,init_duration))
+    inputs[:,:init_duration,2] = torch.sin(allo_shelter_angle_0).reshape((batch_size,1)).repeat((1,init_duration))
+    inputs[:,:init_duration,3] = torch.cos(allo_shelter_angle_0).reshape((batch_size,1)).repeat((1,init_duration))
     inputs[:,:,4:] = torch.sin(landmark_angles)
     inputs[:,:,8:] = torch.cos(landmark_angles)
 

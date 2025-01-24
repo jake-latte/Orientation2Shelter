@@ -60,3 +60,6 @@ from .PI_1D_v2 import *
 from .PI_HD_1D_v2 import *
 from .PI_SD_1D_v2 import *
 from .PI_HD_SD_1D_v2 import *
+
+from .vars_1D_v3 import *
+from .PI_HD_SD_1D_v3 import *

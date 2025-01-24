@@ -55,7 +55,7 @@ def create_data(config, inputs, targets, mask):
     ego_angle = allo_shelter_angle - head_direction
 
     # Save input and target data streams
-    inputs[:,:config.angle_0_duration,input_map['sx']] = shelter_x[:,:config.angle_0_duration]
+    inputs[:,:config.init_duration,input_map['sx']] = shelter_x[:,:config.init_duration]
 
     targets[:,:,target_map['sin_sd']] = torch.sin(ego_angle)
     targets[:,:,target_map['cos_sd']] = torch.cos(ego_angle)

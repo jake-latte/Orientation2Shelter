@@ -18,7 +18,7 @@ target_map = {
 def create_data(config, inputs, targets, mask):
      # Create local copies of parameter properties (for brevity's sake)
     batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
-    angle_0_duration = config.angle_0_duration
+    init_duration = config.init_duration
     
     # Create data as per egocentric equivalent (creates inputs[:,:,0-2] and targets[:,:,0-1])
     inputs, targets, mask = Tasks.allo2D.create_data(config, inputs, targets, mask)

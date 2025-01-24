@@ -11,7 +11,7 @@ default_params = {
 
     # For task:
     # Number of timesteps at beginning of trial where angular velocity is 0
-    'angle_0_duration': 10,
+    'init_duration': 10,
     # Standard deviation of noise in angular velocity input
     'av_step_std': 0.03,
     # Momentum of previous step's angular velocity
@@ -60,7 +60,7 @@ target_map = {
 def create_data(config, inputs, targets, mask):
     # Make local copies of parameter properties (just for brevity's sake)
     batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
-    angle_0_duration = config.angle_0_duration
+    init_duration = config.init_duration
     av_step_std, av_step_momentum = config.av_step_std, config.av_step_momentum
 
     # Randomly select half of sequences (by index) to have zero angular velocity during some random middle-ish period
@@ -76,7 +76,7 @@ def create_data(config, inputs, targets, mask):
 
     for trial in range(batch_size):
 
-        for t in range(angle_0_duration, n_timesteps):
+        for t in range(init_duration, n_timesteps):
             if trial in middle_av_zero_indices:
                 if t>=start_av_zero[trial] and t<=end_av_zero[trial]:
                     angular_velocity[trial, t] = 0
@@ -92,14 +92,14 @@ def create_data(config, inputs, targets, mask):
         
     # Save input streams
     inputs[:,:,input_map['av']] = angular_velocity
-    inputs[:,:angle_0_duration,input_map['sin_hd_0']] = torch.sin(angle_0).repeat((angle_0_duration,1)).T
-    inputs[:,:angle_0_duration,input_map['cos_hd_0']] = torch.cos(angle_0).repeat((angle_0_duration,1)).T
+    inputs[:,:init_duration,input_map['sin_hd_0']] = torch.sin(angle_0).repeat((init_duration,1)).T
+    inputs[:,:init_duration,input_map['cos_hd_0']] = torch.cos(angle_0).repeat((init_duration,1)).T
 
     # Save output streams
     targets[:,:,target_map['sin_hd']] = torch.sin(angle)
     targets[:,:,target_map['cos_hd']] = torch.cos(angle)
 
-    mask[:,:angle_0_duration,:] = 0
+    mask[:,:init_duration,:] = 0
 
     return inputs, targets, mask
 

@@ -15,7 +15,7 @@ target_map = {
 def create_data(config, inputs, targets, mask):
     # Create local copies of parameter properties (for brevity's sake)
     batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
-    angle_0_duration = config.angle_0_duration
+    init_duration = config.init_duration
     
     inputs, targets, mask = Tasks.ego1D.create_data(config, inputs, targets, mask)
 
@@ -31,8 +31,8 @@ def create_data(config, inputs, targets, mask):
 
 
     # Save input and target data streams
-    inputs[:,:angle_0_duration,input_map['sx']] = torch.sin(allo_shelter_angle_0).reshape((batch_size,1)).repeat((1,angle_0_duration))
-    inputs[:,:angle_0_duration,input_map['sy']] = torch.cos(allo_shelter_angle_0).reshape((batch_size,1)).repeat((1,angle_0_duration))
+    inputs[:,:init_duration,input_map['sx']] = torch.sin(allo_shelter_angle_0).reshape((batch_size,1)).repeat((1,init_duration))
+    inputs[:,:init_duration,input_map['sy']] = torch.cos(allo_shelter_angle_0).reshape((batch_size,1)).repeat((1,init_duration))
 
     targets[:,:,target_map['sin_sd']] = torch.sin(ego_sheler_angle)
     targets[:,:,target_map['cos_sd']] = torch.cos(ego_sheler_angle)

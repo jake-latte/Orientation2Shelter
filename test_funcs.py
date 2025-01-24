@@ -1,7 +1,5 @@
 import torch
 
-import os
-import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.rcParams["figure.facecolor"] = 'black'
@@ -361,14 +359,14 @@ Returns
         average activity (tuning) for a given neuron, at a given value of the target variable (or confluence of the two target variables)
 '''
 def get_tuning_generalised(task: Task, inputs: np.ndarray, targets: np.ndarray, vars: dict, activity: np.ndarray, tuning_vars_list: List[str]) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
-    angle_0_duration = task.config.angle_0_duration
+    init_duration = task.config.init_duration
     tuning_vars = {}
 
     # Restrict tuning to the period after initial transients
-    activity, inputs, targets = activity[:,angle_0_duration:,:], inputs[:,angle_0_duration:,:], targets[:,angle_0_duration:,:]
+    activity, inputs, targets = activity[:,init_duration:,:], inputs[:,init_duration:,:], targets[:,init_duration:,:]
     for key, var in vars.items():
         if key != 'sx' and key != 'sy':
-            vars[key] = var[:,angle_0_duration:]
+            vars[key] = var[:,init_duration:]
 
     # Extract tuning parameters
     n_angle_bins = 360#task.config.n_angle_bins
@@ -656,7 +654,7 @@ def manifold_plot(task: Task, activity: np.ndarray, tuning_vars: List[str], tuni
 
     # Perform PCA on the activity data
     pca = PCA(n_components=max_dim)
-    pca.fit(activity[:, config.angle_0_duration:].reshape((-1, n_neurons)))
+    pca.fit(activity[:, config.init_duration:].reshape((-1, n_neurons)))
 
     # Determine the number of dimensions needed to explain the variance
     n_dimensions, = np.where(np.cumsum(pca.explained_variance_ratio_) > var_threshold)
@@ -722,6 +720,8 @@ def manifold_plot(task: Task, activity: np.ndarray, tuning_vars: List[str], tuni
     # Title for manifold activity subfigure
     manifold_fig.suptitle(f'Manifold Activity', fontsize=25, fontweight='bold')
 
+    fig.subplots_adjust(top=0.92)
+
     return fig
 '''
 path_integration_plot
@@ -747,7 +747,7 @@ Returns
 '''
 def path_integration_plot(task: Task, targets: np.ndarray, outputs: np.ndarray, true_colour: str = '#7776BC', pred_colour: str = '#CDC7E5') -> matplotlib.figure.Figure:
 
-    t0 = task.config.angle_0_duration
+    t0 = task.config.init_duration
 
     fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(task.config.test_fig_width,task.config.test_fig_height),
                            sharex=True, sharey=True)
@@ -861,13 +861,13 @@ def fit_examples_plot(task: Task, targets: np.ndarray, outputs: np.ndarray, **kw
         ax[var_i].plot(targets[:,var_i], c=cmap(var_i), label=var)
         ax[var_i].plot(outputs[:,var_i], c=cmap(var_i), linestyle='-.', label=f'model {var}')
 
-        ax[var_i].vlines(task.config.angle_0_duration, ymin=-1, ymax=1, color='gray', linewidth=3)
+        ax[var_i].vlines(task.config.init_duration, ymin=-1, ymax=1, color='gray', linewidth=3)
 
         ax[var_i].set_title(var, fontsize=18)
 
     # Aesthetic settings
     ax[-1].set_xlabel('Timestep')
-    ax[-1].set_xticks([0, task.config.angle_0_duration, targets.shape[0]])
+    ax[-1].set_xticks([0, task.config.init_duration, targets.shape[0]])
 
     plt.subplots_adjust(left=margin, right=1-margin, top=1-margin, bottom=margin)
 

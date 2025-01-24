@@ -36,7 +36,7 @@ input_map = {
 def create_data(config):
     # Create local copies of parameter properties (for brevity's sake)
     batch_size, n_timesteps = config.batch_size, config.n_timesteps
-    angle_0_duration = config.angle_0_duration
+    init_duration = config.init_duration
 
     angle = torch.zeros((batch_size, n_timesteps, 2))
     position = torch.zeros((batch_size, n_timesteps, 2))
@@ -55,32 +55,32 @@ def create_data(config):
         box.add_wall([[1, 1], [0, 1]])
         box.add_wall([[0, 1], [0, 0]])
 
-        for t in range(angle_0_duration, n_timesteps):
+        for t in range(init_duration, n_timesteps):
             rat.update()
 
-        position[i,:angle_0_duration] = torch.tensor(rat.history['pos'][0])
-        position[i,angle_0_duration:] = torch.tensor(rat.history['pos'])
+        position[i,:init_duration] = torch.tensor(rat.history['pos'][0])
+        position[i,init_duration:] = torch.tensor(rat.history['pos'])
 
-        velocity[i,angle_0_duration:], = torch.gradient(torch.tensor(rat.history['pos']), dim=0)
+        velocity[i,init_duration:], = torch.gradient(torch.tensor(rat.history['pos']), dim=0)
 
-        angle[i,:angle_0_duration] = torch.tensor(rat.history['head_direction'][0])
-        angle[i,angle_0_duration:] = torch.tensor(rat.history['head_direction'])
+        angle[i,:init_duration] = torch.tensor(rat.history['head_direction'][0])
+        angle[i,init_duration:] = torch.tensor(rat.history['head_direction'])
 
-    x_0 = position[:,:angle_0_duration,0]
-    y_0 = position[:,:angle_0_duration,1]
+    x_0 = position[:,:init_duration,0]
+    y_0 = position[:,:init_duration,1]
 
     head_direction = torch.atan2(angle[:,:,1], angle[:,:,0])
     head_direction[head_direction<0] += 2*np.pi
 
-    sin_theta_0 = angle[:,:angle_0_duration,1]
-    cos_theta_0 = angle[:,:angle_0_duration,0]
+    sin_theta_0 = angle[:,:init_duration,1]
+    cos_theta_0 = angle[:,:init_duration,0]
 
     k = np.pi
     angular_velocity = torch.cat((torch.zeros((batch_size,1)), torch.diff(head_direction, dim=1)), dim=1)
     angular_velocity = torch.where(angular_velocity>k, angular_velocity - 2*np.pi, angular_velocity)
     angular_velocity = torch.where(angular_velocity<-k, angular_velocity + 2*np.pi, angular_velocity)
 
-    linear_velocity = torch.sqrt(velocity[:,angle_0_duration:,0]**2 + velocity[:,angle_0_duration:,1]**2)
+    linear_velocity = torch.sqrt(velocity[:,init_duration:,0]**2 + velocity[:,init_duration:,1]**2)
                             
     shelter_x_0 = torch.rand(batch_size)
     shelter_y_0 = torch.rand(batch_size)
@@ -116,12 +116,12 @@ def create_data(config):
 
 # Save input and target data streams
 # inputs[:,:,input_map['av']] = angular_velocity
-# inputs[:,:angle_0_duration,input_map['sin_hd_0']] = sin_theta_0
-# inputs[:,:angle_0_duration,input_map['cos_hd_0']] = cos_theta_0
-# inputs[:,:config.angle_0_duration,input_map['sx']] = shelter_x[:,:config.angle_0_duration]
-# inputs[:,:config.angle_0_duration,input_map['sy']] = shelter_y[:,:config.angle_0_duration]
-# inputs[:,:angle_0_duration,input_map['x_0']] = x_0
-# inputs[:,:angle_0_duration,input_map['y_0']] = y_0
-# inputs[:,angle_0_duration:,input_map['v']] = linear_velocity
+# inputs[:,:init_duration,input_map['sin_hd_0']] = sin_theta_0
+# inputs[:,:init_duration,input_map['cos_hd_0']] = cos_theta_0
+# inputs[:,:config.init_duration,input_map['sx']] = shelter_x[:,:config.init_duration]
+# inputs[:,:config.init_duration,input_map['sy']] = shelter_y[:,:config.init_duration]
+# inputs[:,:init_duration,input_map['x_0']] = x_0
+# inputs[:,:init_duration,input_map['y_0']] = y_0
+# inputs[:,init_duration:,input_map['v']] = linear_velocity
 
 

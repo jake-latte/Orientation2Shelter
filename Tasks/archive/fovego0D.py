@@ -16,7 +16,7 @@ default_params = {
 def create_data(config, inputs, targets, mask):
     # Create local copies of parameter properties (for brevity's sake)
     batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
-    angle_0_duration = config.angle_0_duration
+    init_duration = config.init_duration
     fov = config.fov * np.pi/180
     
     inputs, targets, mask = Tasks.ego0D.create_data(config, inputs, targets, mask)

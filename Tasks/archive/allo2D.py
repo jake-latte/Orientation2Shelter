@@ -41,7 +41,7 @@ target_map = {
 def create_data(config, inputs, targets, mask):
     # Create local copies of parameter properties (for brevity's sake)
     batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
-    angle_0_duration = config.angle_0_duration
+    init_duration = config.init_duration
 
     angle = torch.zeros((batch_size, n_timesteps, 2))
     position = torch.zeros((batch_size, n_timesteps, 2))
@@ -60,25 +60,25 @@ def create_data(config, inputs, targets, mask):
         box.add_wall([[1, 1], [0, 1]])
         box.add_wall([[0, 1], [0, 0]])
 
-        for t in range(angle_0_duration, n_timesteps):
+        for t in range(init_duration, n_timesteps):
             rat.update()
 
-        position[i,:angle_0_duration] = torch.tensor(rat.history['pos'][0])
-        position[i,angle_0_duration:] = torch.tensor(rat.history['pos'])
+        position[i,:init_duration] = torch.tensor(rat.history['pos'][0])
+        position[i,init_duration:] = torch.tensor(rat.history['pos'])
 
-        velocity[i,angle_0_duration:], = torch.gradient(torch.tensor(rat.history['pos']), dim=0)
+        velocity[i,init_duration:], = torch.gradient(torch.tensor(rat.history['pos']), dim=0)
 
-        angle[i,:angle_0_duration] = torch.tensor(rat.history['head_direction'][0])
-        angle[i,angle_0_duration:] = torch.tensor(rat.history['head_direction'])
+        angle[i,:init_duration] = torch.tensor(rat.history['head_direction'][0])
+        angle[i,init_duration:] = torch.tensor(rat.history['head_direction'])
 
-    x_0 = position[:,:angle_0_duration,0]
-    y_0 = position[:,:angle_0_duration,1]
+    x_0 = position[:,:init_duration,0]
+    y_0 = position[:,:init_duration,1]
 
     head_direction = torch.atan2(angle[:,:,1], angle[:,:,0])
     head_direction[head_direction<0] += 2*np.pi
 
-    sin_theta_0 = angle[:,:angle_0_duration,1]
-    cos_theta_0 = angle[:,:angle_0_duration,0]
+    sin_theta_0 = angle[:,:init_duration,1]
+    cos_theta_0 = angle[:,:init_duration,0]
 
     k = np.pi
     angular_velocity = torch.cat((torch.zeros((batch_size,1)), torch.diff(head_direction, dim=1)), dim=1)
@@ -87,11 +87,11 @@ def create_data(config, inputs, targets, mask):
 
     # Save input and target data streams
     inputs[:,:,input_map['av']] = angular_velocity
-    inputs[:,:angle_0_duration,input_map['sin_hd_0']] = sin_theta_0
-    inputs[:,:angle_0_duration,input_map['cos_hd_0']] = cos_theta_0
-    inputs[:,:angle_0_duration,input_map['x_0']] = x_0
-    inputs[:,:angle_0_duration,input_map['y_0']] = y_0
-    inputs[:,angle_0_duration:,input_map['v']] = torch.sqrt(velocity[:,angle_0_duration:,0]**2 + velocity[:,angle_0_duration:,1]**2)
+    inputs[:,:init_duration,input_map['sin_hd_0']] = sin_theta_0
+    inputs[:,:init_duration,input_map['cos_hd_0']] = cos_theta_0
+    inputs[:,:init_duration,input_map['x_0']] = x_0
+    inputs[:,:init_duration,input_map['y_0']] = y_0
+    inputs[:,init_duration:,input_map['v']] = torch.sqrt(velocity[:,init_duration:,0]**2 + velocity[:,init_duration:,1]**2)
 
     targets[:,:,target_map['sin_hd']] = angle[:,:,1]
     targets[:,:,target_map['cos_hd']] = angle[:,:,0]

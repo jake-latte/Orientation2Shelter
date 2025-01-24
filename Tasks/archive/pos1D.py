@@ -21,7 +21,7 @@ target_map = {
 def create_data(config, inputs, targets, mask):
     # Create local copies of parameter properties (for brevity's sake)
     batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
-    angle_0_duration = config.angle_0_duration
+    init_duration = config.init_duration
     xv_step_std, xv_step_momentum = config.xv_step_std, config.xv_step_momentum
     
     x_0 = torch.rand(batch_size)
@@ -29,10 +29,10 @@ def create_data(config, inputs, targets, mask):
     x_position = torch.tile(x_0.reshape(batch_size,1), dims=(1,n_timesteps))
 
     for trial in range(batch_size):
-        trial_velocity = torch.zeros((n_timesteps - angle_0_duration,))
-        trial_position = torch.full((n_timesteps - angle_0_duration,), fill_value=x_0[trial])
+        trial_velocity = torch.zeros((n_timesteps - init_duration,))
+        trial_position = torch.full((n_timesteps - init_duration,), fill_value=x_0[trial])
 
-        for t in range(0, n_timesteps - angle_0_duration):
+        for t in range(0, n_timesteps - init_duration):
             xv_step = xv_step_std * np.random.randn() + xv_step_momentum * trial_velocity[t-1]
             max_xv_step = 1 - trial_position[t] 
             min_xv_step = -trial_position[t]
@@ -45,12 +45,12 @@ def create_data(config, inputs, targets, mask):
             trial_velocity[t] = xv_step
             trial_position[t:] += xv_step
         
-        x_velocity[trial, angle_0_duration:] = trial_velocity
-        x_position[trial, angle_0_duration:] = trial_position
+        x_velocity[trial, init_duration:] = trial_velocity
+        x_position[trial, init_duration:] = trial_position
 
     # Save input and target data streams
-    inputs[:,angle_0_duration:,input_map['v']] = x_velocity[:,angle_0_duration:]
-    inputs[:,:angle_0_duration,input_map['x_0']] = torch.tile(x_0.reshape(batch_size,1), dims=(1,angle_0_duration))
+    inputs[:,init_duration:,input_map['v']] = x_velocity[:,init_duration:]
+    inputs[:,:init_duration,input_map['x_0']] = torch.tile(x_0.reshape(batch_size,1), dims=(1,init_duration))
 
     targets[:,:,target_map['x']] = x_position
 

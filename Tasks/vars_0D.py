@@ -12,7 +12,7 @@ default_params = {
 
     # For task:
     # Number of timesteps at beginning of trial where angular velocity is 0
-    'angle_0_duration': 10,
+    'init_duration': 10,
     # Standard deviation of noise in angular velocity input
     'av_step_std': 0.03,
     # Momentum of previous step's angular velocity
@@ -31,7 +31,7 @@ input_map = {
 def create_data(config, for_training=True):
     # Create local copies of parameter properties (for brevity's sake)
     batch_size, n_timesteps = config.batch_size if for_training else config.test_batch_size, config.n_timesteps if for_training else config.test_n_timesteps
-    angle_0_duration = config.angle_0_duration
+    init_duration = config.init_duration
     av_step_std, av_step_momentum = config.av_step_std, config.av_step_momentum
     
     # Randomly select starting angle for each sequence
@@ -41,7 +41,7 @@ def create_data(config, for_training=True):
     angle, angular_velocity = torch.zeros((batch_size, n_timesteps)), torch.zeros((batch_size, n_timesteps))
 
     normal = torch.distributions.normal.Normal(loc=torch.zeros((batch_size,)), scale=torch.ones((batch_size,))*av_step_std)
-    for t in range(angle_0_duration, n_timesteps):
+    for t in range(init_duration, n_timesteps):
 
         angular_velocity[:,t] = normal.sample() + av_step_momentum * angular_velocity[:, t-1]
     
@@ -60,14 +60,14 @@ def create_data(config, for_training=True):
 
 def fill_inputs(config: Config, inputs: torch.Tensor, mask: torch.Tensor, vars: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
     batch_size = inputs.shape[0]
-    angle_0_duration = config.angle_0_duration
+    init_duration = config.init_duration
     
     inputs[:,:,input_map['av']] = vars['av']
-    inputs[:,:angle_0_duration,input_map['sin_hd_0']] = torch.sin(vars['hd'][:,0]).reshape((batch_size,1)).repeat((1,angle_0_duration))
-    inputs[:,:angle_0_duration,input_map['cos_hd_0']] = torch.cos(vars['hd'][:,0]).reshape((batch_size,1)).repeat((1,angle_0_duration))
-    inputs[:,:angle_0_duration,input_map['sx']] = vars['sx'].reshape((batch_size,1)).repeat((1,angle_0_duration))
-    inputs[:,:angle_0_duration,input_map['sy']] = vars['sy'].reshape((batch_size,1)).repeat((1,angle_0_duration))
+    inputs[:,:init_duration,input_map['sin_hd_0']] = torch.sin(vars['hd'][:,0]).reshape((batch_size,1)).repeat((1,init_duration))
+    inputs[:,:init_duration,input_map['cos_hd_0']] = torch.cos(vars['hd'][:,0]).reshape((batch_size,1)).repeat((1,init_duration))
+    inputs[:,:init_duration,input_map['sx']] = vars['sx'].reshape((batch_size,1)).repeat((1,init_duration))
+    inputs[:,:init_duration,input_map['sy']] = vars['sy'].reshape((batch_size,1)).repeat((1,init_duration))
 
-    mask[:,:angle_0_duration] = False
+    mask[:,:init_duration] = False
 
     return inputs, mask

@@ -46,7 +46,7 @@ def init_func(task):
 def create_data(config, inputs, targets, mask):
         # Create local copies of parameter properties (for brevity's sake)
         batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
-        angle_0_duration = config.angle_0_duration
+        init_duration = config.init_duration
         
         # Create data as per egocentric equivalent (creates inputs[:,:,0-2] and targets[:,:,0-1])
         vars = Tasks.vars_2D.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
@@ -86,8 +86,8 @@ def create_data(config, inputs, targets, mask):
         
         inputs[:,:,input_map['av']] = vars['av']
         inputs[:,:,input_map['v']] = vars['v']
-        inputs[:,:angle_0_duration,input_map['sx']] = vars['sx'].reshape((batch_size,1)).repeat((1,angle_0_duration))
-        inputs[:,:angle_0_duration,input_map['sy']] = vars['sy'].reshape((batch_size,1)).repeat((1,angle_0_duration))
+        inputs[:,:init_duration,input_map['sx']] = vars['sx'].reshape((batch_size,1)).repeat((1,init_duration))
+        inputs[:,:init_duration,input_map['sy']] = vars['sy'].reshape((batch_size,1)).repeat((1,init_duration))
 
         for k in range(batch_size):
             for i in range(config.n_place_cells):
@@ -100,7 +100,7 @@ def create_data(config, inputs, targets, mask):
         targets[:,:,target_map['sin_sd']] = torch.sin(vars['sd'])
         targets[:,:,target_map['cos_sd']] = torch.cos(vars['sd'])
 
-        mask[:,:angle_0_duration] = False
+        mask[:,:init_duration] = False
 
         return inputs, targets, vars, mask
 

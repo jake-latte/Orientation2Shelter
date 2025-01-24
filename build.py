@@ -23,6 +23,18 @@ from typing import List, Any, Union
 
 import torch.multiprocessing as mp
 
+class Tee:
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for stream in self.streams:
+            stream.write(data)
+
+    def flush(self):
+        for stream in self.streams:
+            stream.flush()
+
 
 ############################################################################################################################################
 ################################################################ BUILD #####################################################################
@@ -82,16 +94,17 @@ def build(task: Task, net: RNN = None, optimiser: torch.optim.Optimizer = None, 
     # Define name for the build and save directory
     config_name = config.get_name()
     build_dir = f'{config.savedir}/{config.time}-{config_name}'
+    if not os.path.isdir(build_dir):
+            os.makedirs(build_dir)
+            outfile = open(f'{build_dir}/build.out', 'w')
+            sys.stdout = Tee(sys.stdout, outfile)
 
     # Define time at which to terminate training as max_hours from start timne
     killtime = time.time() + (config.max_hours * 60 * 60)
 
     print(f'{task.config.device} build: {build_dir}')
 
-    if 'cuda:' not in str(task.config.device) or 'cuda:0' == task.config.device:
-        print(config)
-    
-    
+    print(config)
 
     # Initialise model and optimiser according to build configuration (if not already supplied)
     if net is None:
@@ -275,6 +288,8 @@ def build(task: Task, net: RNN = None, optimiser: torch.optim.Optimizer = None, 
 
         _update_learning_rate(epoch=epoch+epoch_offset)
 
+        sys.stdout.flush()
+
     # Free memory
     del net
     del optimiser
@@ -284,6 +299,7 @@ def build(task: Task, net: RNN = None, optimiser: torch.optim.Optimizer = None, 
     del test_batch
     del train_losses
     torch.cuda.empty_cache()
+    outfile.close()
 
 
 
@@ -443,7 +459,10 @@ def build_from_command_line():
                 parallel_task = task.copy()
                 for key, vals in parallel_param_settings.items():
                     parallel_task.config.__dict__[key] = vals[i]
-                    parallel_task.config.__dict__['device'] = f'cuda:{i % torch.cuda.device_count()}'
+                    if torch.cuda.is_available():
+                        parallel_task.config.__dict__['device'] = f'cuda:{i % torch.cuda.device_count()}'
+                    else:
+                        parallel_task.config.__dict__['device'] = f'cpu'
                     parallel_task.config.__dict__['time'] = task.config.time
                 parallel_task.config.make_name(include=name_param_keys)
 

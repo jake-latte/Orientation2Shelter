@@ -17,8 +17,8 @@ target_map = {
 
 def create_data(config, inputs, targets, mask):
     
-    vars = Tasks.vars_1D_v2.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
-    inputs, mask = Tasks.vars_1D_v2.fill_inputs(config, inputs, mask, vars)
+    vars = Tasks.vars_1D_vecvel.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
+    inputs, mask = Tasks.vars_1D_vecvel.fill_inputs(config, inputs, mask, vars)
 
     targets[:,:,target_map['sin_x']] = torch.sin(vars['x'])
     targets[:,:,target_map['cos_x']] = torch.cos(vars['x'])
@@ -31,11 +31,11 @@ def create_data(config, inputs, targets, mask):
 
 
 
-PI_HD_SD_1D_V2_TASK = Task('PI_HD_SD-1D_V2', 
-                    n_inputs=6, n_outputs=6, 
-                    task_specific_params=Tasks.vars_1D_v2.default_params, 
+PI_HD_SD_1D_vecvel_TASK = Task('PI_HD_SD-1D_vecvel', 
+                    n_inputs=9, n_outputs=6, 
+                    task_specific_params=Tasks.vars_1D_linvel.default_params, 
                     create_data_func=create_data,
-                    input_map=Tasks.vars_1D_v2.input_map,
+                    input_map=Tasks.vars_1D_vecvel.input_map,
                     target_map=target_map,
                     test_func=test_tuning,
                     test_func_args=dict(tuning_vars_list=['HD', 'ego_SD', 'allo_SD', 'AV', 'x']))

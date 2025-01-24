@@ -127,8 +127,7 @@ def create_data(config, for_training=True):
         'y': pos[:,:,1],
         'v': vel,
         'sx': shelter_x[:,0],
-        'sy': shelter_y[:,0],
-        'zero': zero_trials
+        'sy': shelter_y[:,0]
     }
 
 

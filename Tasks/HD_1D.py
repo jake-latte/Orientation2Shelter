@@ -13,7 +13,7 @@ target_map = {
 
 def create_data(config, inputs, targets, mask):
     
-    vars = Tasks.vars_1D_v2.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
+    vars = Tasks.vars_1D_linvel.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
     inputs, mask = Tasks.vars_1D.fill_inputs(config, inputs, mask, vars)
 
     targets[:,:,target_map['sin_hd']] = torch.sin(vars['hd'])

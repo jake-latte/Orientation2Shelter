@@ -52,14 +52,7 @@ from .SD_1D_trans import *
 from .SD_2D_trans import *
 from .SD_2D_EC import *
 
-from .vars_1D_v2 import *
-from .HD_1D_v2 import *
-from .HD_SD_1D_v2 import *
-from .SD_1D_v2 import *
-from .PI_1D_v2 import *
-from .PI_HD_1D_v2 import *
-from .PI_SD_1D_v2 import *
-from .PI_HD_SD_1D_v2 import *
-
-from .vars_1D_v3 import *
-from .PI_HD_SD_1D_v3 import *
+from .vars_1D_linvel import *
+from .vars_1D_vecvel import *
+from .PI_HD_SD_1D_linvel import *
+from .PI_HD_SD_1D_vecvel import *

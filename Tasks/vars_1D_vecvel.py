@@ -8,6 +8,16 @@ from build import *
 from config import *
 from test_funcs import *
 
+default_params = {
+    'init_duration': 10,
+    # Standard deviation of noise in angular velocity input
+    'v_step_std': 0.01,
+    # Momentum of previous step's angular velocity
+    'v_step_momentum': 0.6,
+    'v_step_hd_bias': 0.01,
+    'v_step_zero_prob': 0.5
+}
+
 input_map = {
     'av': 0,
     'sin_hd_0': 1,

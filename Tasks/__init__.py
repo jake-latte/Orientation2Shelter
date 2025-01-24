@@ -56,3 +56,8 @@ from .vars_1D_linvel import *
 from .vars_1D_vecvel import *
 from .PI_HD_SD_1D_linvel import *
 from .PI_HD_SD_1D_vecvel import *
+
+from .vars_2D_linvel import *
+from .vars_2D_vecvel import *
+from .PI_HD_SD_2D_linvel import *
+from .PI_HD_SD_2D_vecvel import *

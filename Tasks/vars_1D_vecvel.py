@@ -9,7 +9,8 @@ from config import *
 from test_funcs import *
 
 default_params = {
-    'init_duration': 10,
+    
+    **Tasks.vars_0D.default_params,
     # Standard deviation of noise in angular velocity input
     'v_step_std': 0.01,
     # Momentum of previous step's angular velocity

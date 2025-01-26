@@ -131,12 +131,13 @@ class Task:
         return copy
     
     @classmethod
-    def named(self, name: str) -> Any:
+    def named(self, tname: str, **kwargs) -> Any:
         try:
-            task = task_register[name].copy()
+            task = task_register[tname].copy()
+            task.__dict__.update(**kwargs)
             return task
         except KeyError:
-            print(f'No task named {name}')
+            print(f'No task named {tname}')
             return None
 
 
@@ -160,6 +161,24 @@ def default_loss_func(task: Task, net: RNN, batch: dict) -> Tuple[torch.tensor, 
 
     # I think more appropriate:
     loss_weight = task.config.weight_lambda * (torch.mean(net.W_rec.weight**2) + torch.mean(net.W_in.weight**2) + torch.mean(net.W_out.weight**2))
+
+    loss = loss_prediction + loss_activity + loss_weight
+
+    return loss, outputs
+
+def rate_l2_weight_l1_loss_func(task: Task, net: RNN, batch: dict) -> Tuple[torch.tensor, torch.tensor]:
+    _, activity, outputs = net(batch['inputs'], noise=batch['noise'])
+
+    # MSE of (masked) outputs
+    loss_prediction = torch.sum(torch.square(outputs - batch['targets'])[batch['mask']]) / torch.sum(batch['mask']==1)
+
+    # Rate L2
+    loss_activity = task.config.rate_lambda * torch.mean(activity)
+
+    # Weight L1
+    loss_weight = task.config.weight_lambda * (torch.mean(torch.abs(net.W_rec.weight)) + 
+                                               torch.mean(torch.abs(net.W_in.weight)) + 
+                                               torch.mean(torch.abs(net.W_out.weight)))
 
     loss = loss_prediction + loss_activity + loss_weight
 

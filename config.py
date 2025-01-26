@@ -228,7 +228,7 @@ default_params = {
     # Size of minibatches to train on
     'minibatch_size': 500,
     # Maximum learning rate
-    'max_lr': 1.0,
+    'max_lr': 1e-3,
     # Mimumum learning rate
     'min_lr': 0.000001,
     # Initial learning rate schedule: higher values means increases to max quicker

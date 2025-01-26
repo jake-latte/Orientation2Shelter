@@ -30,8 +30,7 @@ def create_data(config, inputs, targets, mask):
 
 
 
-PI_HD_2D_TASK = Task('PI_HD-2D', 
-                    n_inputs=8, n_outputs=4, 
+PI_HD_2D_TASK = Task('PI_HD-2D',
                     task_specific_params=template_2D.default_params, 
                     create_data_func=create_data,
                     input_map=template_2D.input_map,

@@ -17,8 +17,7 @@ default_params = {
     'v_step_shape': 2,
     'v_step_scale': 0.005,
     'v_step_momentum': 0.3,
-    'v_step_zero_prob': 0.5,
-    'n_timesteps': 1000
+    'v_step_zero_prob': 0.5
 }
 
 input_map = {

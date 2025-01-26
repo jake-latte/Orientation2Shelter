@@ -30,8 +30,7 @@ def create_data(config, inputs, targets, mask):
 
 
 
-HD_SD_1D_linvel_TASK = Task('HD_SD-1D_linvel', 
-                    n_inputs=6, n_outputs=4, 
+HD_SD_1D_linvel_TASK = Task('HD_SD-1D_linvel',
                     task_specific_params=template_1D_linvel.default_params, 
                     create_data_func=create_data,
                     input_map=template_1D_linvel.input_map,

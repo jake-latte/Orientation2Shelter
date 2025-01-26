@@ -28,8 +28,7 @@ def create_data(config, inputs, targets, mask):
 
 
 
-PI_HD_1D_TASK = Task('PI_HD-1D', 
-                    n_inputs=7, n_outputs=3, 
+PI_HD_1D_TASK = Task('PI_HD-1D',
                     task_specific_params=template_1D.default_params, 
                     create_data_func=create_data,
                     input_map=template_1D.input_map,

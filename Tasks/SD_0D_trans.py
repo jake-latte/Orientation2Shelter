@@ -41,8 +41,7 @@ def create_data(config, inputs, targets, mask):
 
 
 
-SD_0D_TRANS_TASK = Task('SD-0D-trans', 
-                    n_inputs=4, n_outputs=2, 
+SD_0D_TRANS_TASK = Task('SD-0D-trans',
                     task_specific_params=template_0D.default_params, 
                     create_data_func=create_data,
                     input_map=input_map,

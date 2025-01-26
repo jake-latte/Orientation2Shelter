@@ -47,8 +47,7 @@ def create_data(config, inputs, targets, mask):
 
 
 
-PI_2D_TASK = Task('PI-2D', 
-                    n_inputs=8, n_outputs=2, 
+PI_2D_TASK = Task('PI-2D',
                     task_specific_params=cueva_params, 
                     create_data_func=create_data,
                     input_map=template_2D.input_map,

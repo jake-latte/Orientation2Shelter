@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from config import Config
+from task import Task
 
 from typing import Callable, Tuple
 
@@ -46,7 +47,8 @@ class RNN(nn.Module):
     Returns
         None
     '''
-    def __init__(self, config: Config, activation_func: Callable[[torch.Tensor], torch.Tensor] = None, **kwargs):
+    def __init__(self, task: Task, activation_func: Callable[[torch.Tensor], torch.Tensor] = None, **kwargs):
+        config = task.config
 
         # Initialise properties from config/kwargs (see config.py)
         self.n_neurons = kwargs.get('n_neurons', config.n_neurons)
@@ -313,12 +315,14 @@ class LowRankRNN(RNN):
         kwargs : 
             keyword arguments to override any properties in config
     '''
-    def __init__(self, config: Config, activation_func: Callable[[torch.Tensor], torch.Tensor] = None, **kwargs):
+    def __init__(self, task: Task, activation_func: Callable[[torch.Tensor], torch.Tensor] = None, **kwargs):
+        config = task.config
+
         self.rank = kwargs.get('rank', config.rank)
         assert self.rank is not None
 
         # Use RNN superclass to initialise (will create full-rank W_rec, which is then overridden below)
-        super().__init__(config, activation_func=activation_func, **kwargs)
+        super().__init__(task, activation_func=activation_func, **kwargs)
 
         # W_rec override (recurrent weights constrained to be low-rank)
         self.W_rec = LowRankRecurrentLayer(
@@ -336,174 +340,3 @@ class LowRankRNN(RNN):
         return super().forward(u, x_0=x_0, noise=noise, batch_first=batch_first)
     
 
-
-
-
-
-
-
-
-
-
-
-    '''
-    __init__
-    Create Reinforcement Learning RNN per specified structure and initialise weights
-    ---------------------------------------------------------------------------------------------
-    Receives
-        config : 
-            a Config object which determines structure and other properties of the net
-        kwargs : 
-            keyword arguments to override any properties which may be contained in config
-    
-    Returns
-        None
-    '''
-    def __init__(self, config, activation_func=None, **kwargs):
-
-        # Initialise properties from config/kwargs (see Config.py)
-        self.n_neurons = kwargs.get('n_neurons', config.n_neurons)
-        self.n_inputs = kwargs.get('n_inputs', config.n_inputs)
-        self.n_outputs = kwargs.get('n_outputs', config.n_outputs) # n actions
-        self.activation_func_name = kwargs.get('activation_func_name', config.activation_func_name)
-        self.dt = kwargs.get('dt', config.dt)
-        self.tau = kwargs.get('tau', config.tau)
-
-        self.W_in_init = kwargs.get('W_in_init', config.W_in_init)
-        self.W_rec_init = kwargs.get('W_rec_init', config.W_rec_init)
-        self.hidden_g = kwargs.get('hidden_g', config.hidden_g)
-
-        self.learn_x_0 = kwargs.get('learn_x_0', config.learn_x_0)
-        self.learn_W_in = kwargs.get('learn_W_in', config.learn_W_in)
-        self.learn_W_in_bias = kwargs.get('learn_W_in_bias', config.learn_W_in_bias)
-        self.learn_W_rec = kwargs.get('learn_W_rec', config.learn_W_rec)
-        self.learn_W_out = kwargs.get('learn_W_out', config.learn_W_out)
-        self.learn_W_out_bias = kwargs.get('learn_W_out_bias', config.learn_W_out_bias)
-
-        self.state_noise_std = kwargs.get('state_noise_std', config.state_noise_std)
-        self.rate_noise_std = kwargs.get('rate_noise_std', config.rate_noise_std)
-        self.output_noise_std = kwargs.get('output_noise_std', config.output_noise_std)
-
-        self.device = kwargs.get('device', config.device)
-
-        super(RNN, self).__init__()
-
-
-        self.activation_func = get_activation_func_from_name(self.activation_func_name) if activation_func is None else activation_func
-
-        # Initialise input weights (W_in)
-        self.W_in = nn.Linear(self.n_inputs, self.n_neurons, bias=True)
-
-        if self.W_in_init == 'normal':
-            nn.init.normal_(self.W_in.weight, mean=0, std=1 / np.sqrt(self.n_inputs))
-        elif self.W_in_init == 'orthogonal':
-            nn.init.orthogonal_(self.W_in.weight, gain=torch.nn.init.calculate_gain('relu') * self.hidden_g)
-        else:
-            raise(f'Unsupported input weight initialisation. Use "normal". You used: {self.W_in_init}' )
-
-        self.W_in.weight.requires_grad = self.learn_W_in
-        
-        input_bias = 0.1 + 0.01*torch.randn(self.n_neurons)
-        self.W_in.bias = torch.nn.Parameter(torch.squeeze(input_bias))
-        self.W_in.bias.requires_grad = self.learn_W_in_bias
-
-
-
-        # Initialise recurrent weights (W_rec)
-        self.W_rec = nn.Linear(self.n_neurons, self.n_neurons, bias=False, device=self.device)
-        
-        if self.W_rec_init == 'normal':
-            nn.init.normal_(self.W_rec.weight, mean=0, std=self.hidden_g / np.sqrt(self.n_neurons)) 
-        elif self.W_rec_init == 'orthogonal':
-            nn.init.orthogonal_(self.W_rec.weight, gain=torch.nn.init.calculate_gain('relu') * self.hidden_g)
-        else:
-            raise(f'Unsupported input weight initialisation. Use "normal" or "orthogonal". You used: {self.W_rec_init}' )
-        
-        self.W_rec.weight = nn.Parameter(
-            (1 - torch.eye(self.n_neurons, device=self.device)) * self.W_rec.weight.data, requires_grad=self.learn_W_rec
-        )
-
-        # Initialise output weights (W_out)
-        self.policy_linear = nn.Linear(self.n_neurons, self.n_outputs, bias=True)
-        self.policy_linear.weight.requires_grad = self.learn_W_out
-        self.policy_linear.bias.requires_grad = self.learn_W_out_bias 
-
-        self.value_linear = nn.Linear(self.n_neurons, 1, bias=True)
-        self.value_linear.weight.requires_grad = self.learn_W_out
-        self.value_linear.bias.requires_grad = self.learn_W_out_bias
-
-
-        # Initialise initial state
-        self.x_0 = torch.nn.Parameter(torch.zeros(self.n_neurons), requires_grad=self.learn_x_0)
-
-
-        self.to(self.device)
-        # self.train(False)
-
-
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-
-    '''
-    forward
-    nn.Module.forward implementation for Continuous-Time RNN
-    ---------------------------------------------------------------------------------------------
-    Receives
-        input : 
-            a batched input tensor of shape [num sequences, num timesteps, num inputs]
-        noise (optional) : 
-            tuple of noise tensors (state noise, rate noise, output noise) matched to the input, each of shape
-            [num sequences, num timesteps, num units (hidden units or output units)]
-            if not supplied, are generated from a normal distribution ~ N(0, config.---_noise_std^2)
-    
-    Returns
-        tuple[ torch.tensor ] (states, activations, outputs) :
-            states :
-                tensor of shape [num sequences, num timesteps, num hidden units] represnting non-activated states of
-                hidden units during trial
-            activations :
-                hidden units activities, corresponding to states (i.e., activation_func(states))
-            outputs :
-                tensor of shape [num sequences, num timesteps, num output units] corresponding to network output over
-                input sequence
-    '''
-    def forward(self, state, x_0=None, noise=None):
-
-        assert len(state.shape) <= 2
-
-        if len(state.shape)==0:
-            u = torch.unsqueeze(u, 0)
-        
-        # Initialise network state to chosen starting point
-        x_0 = self.x_0 if x_0 is None else x_0
-
-        # Generate noise if not supplied, or transpose that given
-        if noise is None:
-            state_noise = torch.normal(mean=0, std=self.state_noise_std, size=(self.n_neurons,), dtype=self.x_0.dtype).to(self.device)
-            rate_noise = torch.normal(mean=0, std=self.rate_noise_std, size=(self.n_neurons,), dtype=self.x_0.dtype).to(self.device)
-            policy_noise = torch.normal(mean=0, std=self.output_noise_std, size=(self.n_outputs,), dtype=self.x_0.dtype).to(self.device)
-            value_noise = torch.normal(mean=0, std=self.output_noise_std, size=(1,), dtype=self.x_0.dtype).to(self.device)
-
-        x_t, r_t = x_0, self.activation_func(x_0)
-
-        # Continuous-Time RNN Update Funcion:
-        x_next = x_t + (self.dt/self.tau) * (-x_t + self.W_rec(r_t) + self.W_in(u) + state_noise)
-        r_next = self.activation_func(x_next) + rate_noise
-        p_next = self.policy_linear(r_next) + policy_noise
-        v_next = self.value_linear(r_next) + value_noise
-
-        states, activity, actions, values = x_next, r_next, p_next, v_next
-
-        return states, activity, actions, values
-    
-    def get_action(self, state):
-        _,_,actions,_ = self.forward(state)
-        return actions
-    
-
-
-    def parameters(self):
-        for params in super(RNN, self).parameters():
-            if params.requires_grad:
-                yield params

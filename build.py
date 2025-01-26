@@ -110,9 +110,9 @@ def build(task: Task, net: RNN = None, optimiser: torch.optim.Optimizer = None, 
     if net is None:
         if task.config.rank is not None:
             print(f'Using low-rank network of rank {task.config.rank}')
-            net = LowRankRNN(config, rank=int(task.config.rank))
+            net = LowRankRNN(task, rank=int(task.config.rank))
         else:
-            net = RNN(config)
+            net = RNN(task)
 
     if optimiser is None:
         if config.optimiser_name == 'Adam':
@@ -378,9 +378,9 @@ def build_from_command_line():
 
                 # Get model from checkpoint
                 if task.config.rank is not None:
-                    net = LowRankRNN(task.config, rank=int(task.config.rank))
+                    net = LowRankRNN(task, rank=int(task.config.rank))
                 else:
-                    net = RNN(task.config)
+                    net = RNN(task)
                 net.load_state_dict(checkpoint['net_state_dict'])
 
                 # Get optimiser from checkpoint

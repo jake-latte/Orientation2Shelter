@@ -34,8 +34,7 @@ def create_data(config, inputs, targets, mask):
 
 
 
-PI_HD_SD_1D_vecvel_TASK = Task('PI_HD_SD-1D_vecvel', 
-                    n_inputs=9, n_outputs=6, 
+PI_HD_SD_1D_vecvel_TASK = Task('PI_HD_SD-1D_vecvel',
                     task_specific_params=template_1D_vecvel.default_params, 
                     create_data_func=create_data,
                     input_map=template_1D_vecvel.input_map,

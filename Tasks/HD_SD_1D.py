@@ -29,8 +29,7 @@ def create_data(config, inputs, targets, mask):
 
 
 
-HD_SD_1D_TASK = Task('HD_SD-1D', 
-                    n_inputs=7, n_outputs=4, 
+HD_SD_1D_TASK = Task('HD_SD-1D',
                     task_specific_params=template_1D.default_params, 
                     create_data_func=create_data,
                     input_map=template_1D.input_map,

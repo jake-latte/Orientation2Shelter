@@ -106,6 +106,9 @@ class Config:
         res = f'\n{"-"*25} CONFIG {"-"*25}\n'
         for key, val in self.__dict__.items():
             flag = '\t'
+            if type(val)==torch.Tensor:
+                res += (f'{flag}{key}: {val.shape}\n')
+                continue
             res += (f'{flag}{key}: {val}\n')
         res += ('\n' + '-'*58)
 
@@ -143,10 +146,6 @@ default_params = {
     
     # No. neurons in hidden layer
     'n_neurons': 100,  
-    # No. neurons in input layer                                                                 
-    'n_inputs': 3,   
-    # No. neurons in output layer                                                               
-    'n_outputs': 2,
     # Name of activaion function (ReTanh, Tanh, ReLU)
     'activation_func_name': 'ReTanh',
     # Euler step size

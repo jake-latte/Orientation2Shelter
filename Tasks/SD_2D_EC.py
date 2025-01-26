@@ -6,8 +6,9 @@ from task import *
 from build import *
 from test_funcs import *
 
-
 import Tasks.vars_2D as template_2D
+import Tasks.vars_EC as template_EC
+
 
 target_map = {
     'sin_sd': 0,
@@ -16,108 +17,30 @@ target_map = {
 
 default_params = {
     **template_2D.default_params,
-
-    'n_place_cells': 50,
-    'n_head_direction_cells': 50,
-    'place_cell_scale': 0.2,
-    'head_direction_cell_concentration': 0.5
+    **template_EC.default_params
 }
-
-input_map = {
-    'av': 0,
-    'v': 1,
-    'sx': 2,
-    'sy': 3
-}
-
-def init_func(task):
-    config = task.config
-    if config.n_inputs == -1:
-        config.n_inputs = config.n_place_cells + config.n_head_direction_cells + len(input_map)
-
-        config.__dict__['place_cell_centers'] = torch.rand(config.n_place_cells, 2)
-        config.__dict__['head_direction_cell_centers'] = torch.rand(config.n_head_direction_cells) * 2*np.pi
-
-        for i in range(config.n_place_cells):
-            input_map[f'PC_{i+1}'] = i+2
-        for i in range(config.n_head_direction_cells):
-            input_map[f'HD_{i+1}'] = i+config.n_place_cells+2
-
-        task.input_map = input_map
 
 
 def create_data(config, inputs, targets, mask):
-        # Create local copies of parameter properties (for brevity's sake)
-        batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
-        init_duration = config.init_duration
-        
-        # Create data as per egocentric equivalent (creates inputs[:,:,0-2] and targets[:,:,0-1])
-        vars = template_2D.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
 
-        head_direction = vars['hd']
-        x_position = vars['x']
-        y_position = vars['y']
+    vars = template_2D.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
+    inputs, mask = template_EC.fill_inputs(config, inputs, mask, vars)
 
-        def _PC_activity(X, Y, i):
-            mu_c, sigma_c = config.place_cell_centers, config.place_cell_scale
-            numerator = torch.exp(
-                - ((X - mu_c[i, 0])**2 + (Y - mu_c[i, 1])**2) / (2 * sigma_c**2)
-            )
+    targets[:,:,target_map['sin_sd']] = torch.sin(vars['sd'])
+    targets[:,:,target_map['cos_sd']] = torch.cos(vars['sd'])
 
-            denomenator = torch.zeros(X.shape)
-            for j in range(config.n_place_cells):
-                denomenator += torch.exp(
-                    - ((X - mu_c[j, 0])**2 + (Y - mu_c[j, 1])**2) / (2 * sigma_c**2)
-                )
-
-            return numerator / denomenator
-
-        def _HD_activity(Theta, i):
-            mu_h, k_h = config.head_direction_cell_centers, config.head_direction_cell_concentration
-
-            numerator = torch.exp(
-                k_h * torch.cos(Theta - mu_h[i])
-            )
-
-            denomenator = torch.zeros(Theta.shape)
-            for j in range(config.n_head_direction_cells):
-                denomenator += torch.exp(
-                    k_h * torch.cos(Theta - mu_h[j])
-                )
-
-            return numerator / denomenator
-        
-        inputs[:,:,input_map['av']] = vars['av']
-        inputs[:,:,input_map['v']] = vars['v']
-        inputs[:,:init_duration,input_map['sx']] = vars['sx'].reshape((batch_size,1)).repeat((1,init_duration))
-        inputs[:,:init_duration,input_map['sy']] = vars['sy'].reshape((batch_size,1)).repeat((1,init_duration))
-
-        for k in range(batch_size):
-            for i in range(config.n_place_cells):
-                X, Y = x_position[k], y_position[k]
-                inputs[k,:,input_map[f'PC_{i+1}']] = _PC_activity(X, Y, i)
-            for i in range(config.n_head_direction_cells):
-                Theta = head_direction[k]
-                inputs[k,:,input_map[f'HD_{i+1}']] = _HD_activity(Theta, i) 
-
-        targets[:,:,target_map['sin_sd']] = torch.sin(vars['sd'])
-        targets[:,:,target_map['cos_sd']] = torch.cos(vars['sd'])
-
-        mask[:,:init_duration] = False
-
-        return inputs, targets, vars, mask
+    return inputs, targets, vars, mask
 
 
 
-SD_2D_EC_TASK = Task('SD-2D_EC', 
-                    n_inputs=-1, n_outputs=2, 
+SD_2D_EC_TASK = Task('SD-2D-EC',
                     task_specific_params=default_params, 
                     create_data_func=create_data,
-                    input_map=input_map,
+                    init_func=template_EC.init_func,
+                    input_map={},
                     target_map=target_map,
                     test_func=test_tuning,
-                    test_func_args=dict(tuning_vars_list=['x', 'y', 'AV', 'allo_SD', 'ego_SD']),
-                    init_func=init_func)
+                    test_func_args=dict(tuning_vars_list=['ego_SD', 'allo_SD', 'AV', 'x']))
 
 
 

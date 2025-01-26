@@ -1,5 +1,4 @@
 from config import Config
-from net import RNN
 
 from typing import Callable, Tuple, Any, Dict
 
@@ -15,7 +14,7 @@ import torch
 ############################################################################################################################################
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-# Task superclass capturing common structure of data generation and presentation to RNN                                                    #
+# Task superclass capturing common structure of data generation and presentation to 'RNN'                                                    #
 # See 'Tasks' directory for instances                                                                                                      #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
@@ -31,10 +30,6 @@ class Task:
     Receives
         name : 
             Name of task by which it will be known in the registry
-        n_inputs :
-            Number of inputs the task uses
-        n_outputs :
-            Number of outputs the task uses
         task_specific_params :
             Parameters to be used in the task (as opposed to general params of config.py)
         create_data_func :
@@ -45,10 +40,10 @@ class Task:
         target_map :
             Mapping of task variable name to index in target data tensors
         loss_func (optional) :
-            Loss function (receives Task, RNN, batch objects; returns loss and output tensors) to use with task
+            Loss function (receives Task, 'RNN', batch objects; returns loss and output tensors) to use with task
             If not specified, a default regularised MSE is used (see below)
         test_func (optional) :
-            Testing function (receives Task, RNN, batch objects) to generate figures
+            Testing function (receives Task, 'RNN', batch objects) to generate figures
             If not specified, a default is used (see test_funcs.py)
         test_func_args (optional) :
             Addional arguments to be supplied to the testing function
@@ -59,29 +54,26 @@ class Task:
             In general, should be True for global Task objects and False for local copies
     '''
     def __init__(self, 
-                 name: str, 
-                 n_inputs: int, n_outputs: int, 
+                 name: str,
                  task_specific_params: dict, 
                  create_data_func: Callable[[Config, torch.Tensor, torch.Tensor], 
                                             Tuple[torch.Tensor, torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]],
                  input_map: dict, 
                  target_map:dict, 
-                 loss_func: Callable[['Task', RNN, dict], Tuple[torch.Tensor, torch.Tensor]] = None, 
-                 test_func: Callable[['Task', RNN, dict], Dict[str, matplotlib.figure.Figure]] = None, 
+                 loss_func: Callable[['Task', 'RNN', dict], Tuple[torch.Tensor, torch.Tensor]] = None, 
+                 test_func: Callable[['Task', 'RNN', dict], Dict[str, matplotlib.figure.Figure]] = None, 
                  test_func_args:dict = {}, 
                  init_func: Callable[['Task'], Any] = None, 
                  register: bool = True):
         
         self.name = name
-        self.n_inputs = n_inputs
-        self.n_outputs = n_outputs
         self.task_specific_params = task_specific_params
         self.create_data_func = create_data_func
         self.input_map = input_map
         self.target_map = target_map
 
         # Generate config object which includes specified parameters
-        self.config = Config(task=name, n_inputs=n_inputs, n_outputs=n_outputs, **task_specific_params)
+        self.config = Config(task=name, n_inputs=len(input_map), n_outputs=len(target_map), **task_specific_params)
 
         # Save default/supplied functions
         self.init_func = init_func
@@ -105,7 +97,7 @@ class Task:
             self.register()
 
     # Wrapper function for calling loss function
-    def get_loss(self, net: RNN, batch: dict):
+    def get_loss(self, net: 'RNN', batch: dict):
         return self.loss_func(task=self, net=net, batch=batch)
 
     # Add this object to global task register
@@ -116,7 +108,6 @@ class Task:
     def copy(self, **kwargs) -> Any:
         task_args = dict(
             name=self.name, 
-            n_inputs=self.n_inputs, n_outputs=self.n_outputs, 
             task_specific_params=self.task_specific_params, 
             create_data_func=self.create_data_func, init_func=self.init_func, loss_func=self.loss_func, 
             test_func=self.test_func, test_func_args=self.test_func_args, 
@@ -133,7 +124,7 @@ class Task:
     @classmethod
     def from_checkpoint(self, checkpoint: dict) -> Any:
         task = task_register[checkpoint['config']['task']]
-        copy = Task(task.name, task.n_inputs, task.n_outputs, task.task_specific_params, task.create_data_func, 
+        copy = Task(task.name, task.task_specific_params, task.create_data_func, 
                     init_func=task.init_func, loss_func=task.loss_func, test_func=task.test_func, test_func_args=task.test_func_args, 
                     input_map=task.input_map, target_map=task.target_map)
         copy.config.update(**checkpoint['config'])
@@ -153,7 +144,7 @@ class Task:
 
 # Default loss function
 # MSE of output + L2 regularised rates + L2 regularised weights
-def default_loss_func(task: Task, net: RNN, batch: dict) -> Tuple[torch.tensor, torch.tensor]:
+def default_loss_func(task: Task, net: 'RNN', batch: dict) -> Tuple[torch.tensor, torch.tensor]:
     _, activity, outputs = net(batch['inputs'], noise=batch['noise'])
 
     # MSE of (masked) outputs
@@ -174,7 +165,7 @@ def default_loss_func(task: Task, net: RNN, batch: dict) -> Tuple[torch.tensor, 
 
     return loss, outputs
 
-def rate_l2_weight_l1_loss_func(task: Task, net: RNN, batch: dict) -> Tuple[torch.tensor, torch.tensor]:
+def rate_l2_weight_l1_loss_func(task: Task, net: 'RNN', batch: dict) -> Tuple[torch.tensor, torch.tensor]:
     _, activity, outputs = net(batch['inputs'], noise=batch['noise'])
 
     # MSE of (masked) outputs

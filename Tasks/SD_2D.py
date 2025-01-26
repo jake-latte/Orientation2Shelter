@@ -26,8 +26,7 @@ def create_data(config, inputs, targets, mask):
 
 
 
-SD_2D_TASK = Task('SD-2D', 
-                    n_inputs=8, n_outputs=2, 
+SD_2D_TASK = Task('SD-2D',
                     task_specific_params=template_2D.default_params, 
                     create_data_func=create_data,
                     input_map=template_2D.input_map,

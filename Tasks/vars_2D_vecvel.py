@@ -9,7 +9,12 @@ from build import *
 from config import *
 from test_funcs import *
 
-default_params = Tasks.vars_2D_linvel.default_params
+
+import Tasks.vars_1D_linvel as template_1D
+
+default_params = template_1D.default_params
+
+
 
 input_map = {
     'av': 0,

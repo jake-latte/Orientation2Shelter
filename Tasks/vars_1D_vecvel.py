@@ -8,9 +8,12 @@ from build import *
 from config import *
 from test_funcs import *
 
+
+import Tasks.vars_0D as template_0D
+
 default_params = {
     
-    **Tasks.vars_0D.default_params,
+    **template_0D.default_params,
     # Standard deviation of noise in angular velocity input
     'v_step_std': 0.01,
     # Momentum of previous step's angular velocity
@@ -37,7 +40,7 @@ def create_data(config, for_training=True):
     init_duration = config.init_duration
     v_step_std, v_step_momentum, v_step_hd_bias = config.v_step_std, config.v_step_momentum, config.v_step_hd_bias
 
-    vars = Tasks.vars_0D.create_data(config, for_training=for_training)
+    vars = template_0D.create_data(config, for_training=for_training)
 
     pos_0 = 2*np.pi*torch.rand(batch_size)
     velocity = torch.zeros((batch_size, n_timesteps))

@@ -6,6 +6,9 @@ from task import *
 from build import *
 from test_funcs import *
 
+
+import Tasks.vars_2D_linvel as template_2D_linvel
+
 target_map = {
     'x': 0,
     'y': 1,
@@ -17,8 +20,8 @@ target_map = {
 
 def create_data(config, inputs, targets, mask):
 
-    vars = Tasks.vars_2D_linvel.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
-    inputs, mask = Tasks.vars_2D_linvel.fill_inputs(config, inputs, mask, vars)
+    vars = template_2D_linvel.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
+    inputs, mask = template_2D_linvel.fill_inputs(config, inputs, mask, vars)
 
     targets[:,:,target_map['x']] = vars['x']
     targets[:,:,target_map['y']] = vars['y']
@@ -33,9 +36,9 @@ def create_data(config, inputs, targets, mask):
 
 PI_HD_SD_2D_linvel_TASK = Task('PI_HD_SD-2D_linvel', 
                             n_inputs=8, n_outputs=6, 
-                            task_specific_params=Tasks.vars_2D_linvel.default_params, 
+                            task_specific_params=template_2D_linvel.default_params, 
                             create_data_func=create_data,
-                            input_map=Tasks.vars_2D_linvel.input_map,
+                            input_map=template_2D_linvel.input_map,
                             target_map=target_map,
                             test_func=test_tuning,
                             test_func_args=dict(tuning_vars_list=['HD', 'ego_SD', 'allo_SD', 'AV', 'x', 'y']))

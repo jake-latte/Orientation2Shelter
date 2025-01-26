@@ -8,8 +8,10 @@ from config import *
 from test_funcs import *
 
 
+import Tasks.vars_0D as template_0D
+
 default_params = {
-    **Tasks.vars_0D.default_params,
+    **template_0D.default_params,
     # Standard deviation of noise in angular velocity input
     'v_step_shape': 2,
     'v_step_scale': 0.005,

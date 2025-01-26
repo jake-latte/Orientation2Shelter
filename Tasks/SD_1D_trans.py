@@ -6,6 +6,8 @@ from task import *
 from build import *
 from test_funcs import *
 
+import Tasks.vars_1D as template_1D
+
 target_map = {
     'sin_sd': 0,
     'cos_sd': 1
@@ -23,7 +25,7 @@ def create_data(config, inputs, targets, mask):
     
     batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
 
-    vars = Tasks.vars_1D.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
+    vars = template_1D.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
 
     inputs[:,:,input_map['sin_hd']] = torch.sin(vars['hd'])
     inputs[:,:,input_map['cos_hd']] = torch.cos(vars['hd'])
@@ -42,7 +44,7 @@ def create_data(config, inputs, targets, mask):
 
 SD_1D_TRANS_TASK = Task('SD-1D_trans', 
                     n_inputs=5, n_outputs=2, 
-                    task_specific_params=Tasks.vars_1D.default_params, 
+                    task_specific_params=template_1D.default_params, 
                     create_data_func=create_data,
                     input_map=input_map,
                     target_map=target_map,

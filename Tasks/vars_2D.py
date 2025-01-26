@@ -8,8 +8,11 @@ from config import *
 from test_funcs import *
 
 
+import Tasks.vars_0D as template_0D
+
+
 default_params = {
-    **Tasks.vars_0D.default_params,
+    **template_0D.default_params,
     # Standard deviation of noise in angular velocity input
     'v_step_shape': 2,
     'v_step_scale': 0.005,
@@ -50,11 +53,6 @@ def create_data(config, for_training=True):
     normal = torch.distributions.normal.Normal(loc=torch.zeros((batch_size,)), scale=torch.ones((batch_size,))*av_step_std)
     gamma = torch.distributions.gamma.Gamma(concentration=torch.ones((batch_size,))*v_step_shape, rate=torch.ones((batch_size,))/v_step_scale)    
     for t in range(init_duration, n_timesteps):
-
-        max_xv_step = 1 - pos[:, t, 0]
-        min_xv_step = -1 - pos[:, t, 0]
-        max_yv_step = 1 - pos[:, t, 1]
-        min_yv_step = -1 - pos[:, t, 1]
 
         av_step = normal.sample() + av_step_momentum * AV[:, t-1]
 

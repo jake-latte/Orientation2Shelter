@@ -6,7 +6,6 @@ from typing import Dict, Tuple
 from task import *
 from build import *
 from config import *
-from test_funcs import *
 
 
 default_params = {

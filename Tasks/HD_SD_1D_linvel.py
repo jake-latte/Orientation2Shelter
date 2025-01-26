@@ -6,6 +6,9 @@ from task import *
 from build import *
 from test_funcs import *
 
+# Task Dependencies
+import Tasks.vars_1D_linvel as template_1D_linvel
+
 target_map = {
     'sin_hd': 0,
     'cos_hd': 1,
@@ -15,8 +18,8 @@ target_map = {
 
 def create_data(config, inputs, targets, mask):
     
-    vars = Tasks.vars_1D_linvel.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
-    inputs, mask = Tasks.vars_1D_linvel.fill_inputs(config, inputs, mask, vars)
+    vars = template_1D_linvel.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
+    inputs, mask = template_1D_linvel.fill_inputs(config, inputs, mask, vars)
 
     targets[:,:,target_map['sin_hd']] = torch.sin(vars['hd'])
     targets[:,:,target_map['cos_hd']] = torch.cos(vars['hd'])
@@ -29,9 +32,9 @@ def create_data(config, inputs, targets, mask):
 
 HD_SD_1D_linvel_TASK = Task('HD_SD-1D_linvel', 
                     n_inputs=6, n_outputs=4, 
-                    task_specific_params=Tasks.vars_1D_linvel.default_params, 
+                    task_specific_params=template_1D_linvel.default_params, 
                     create_data_func=create_data,
-                    input_map=Tasks.vars_1D_linvel.input_map,
+                    input_map=template_1D_linvel.input_map,
                     target_map=target_map,
                     test_func=test_tuning,
                     test_func_args=dict(tuning_vars_list=['HD', 'ego_SD', 'allo_SD', 'AV', 'x']))

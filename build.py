@@ -17,11 +17,11 @@ from hessianfree import HessianFree
 import matplotlib
 import matplotlib.pyplot as plt
 
-import Tasks
-
 from typing import List, Any, Union
 
 import torch.multiprocessing as mp
+
+import importlib
 
 class Tee:
     def __init__(self, *streams):
@@ -329,6 +329,8 @@ def build_from_command_line():
 
     task_name = args[1]
 
+    importlib.import_module(f'Tasks.{task_name.replace("-", "_")}')
+
     # Extract task object from first argument
     task = None
     try:
@@ -481,7 +483,6 @@ def build_from_command_line():
     
 
 
-if __name__ == '__main__': 
-    import Tasks
+if __name__ == '__main__':
     
     build_from_command_line()

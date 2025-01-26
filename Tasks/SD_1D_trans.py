@@ -6,20 +6,22 @@ from task import *
 from build import *
 from test_funcs import *
 
-import Tasks.vars_1D as template_1D
+import Tasks.vars_1D_linvel as template_1D
+
+input_map = {
+    'sin_hd': 0,
+    'cos_hd': 1,
+    'sin_x': 2,
+    'cos_x': 3,
+    'sx': 4,
+    'sy': 5
+}
 
 target_map = {
     'sin_sd': 0,
     'cos_sd': 1
 }
 
-input_map = {
-    'sin_hd': 0,
-    'cos_hd': 1,
-    'x': 2,
-    'sx': 3,
-    'sy': 4
-}
 
 def create_data(config, inputs, targets, mask):
     
@@ -29,7 +31,8 @@ def create_data(config, inputs, targets, mask):
 
     inputs[:,:,input_map['sin_hd']] = torch.sin(vars['hd'])
     inputs[:,:,input_map['cos_hd']] = torch.cos(vars['hd'])
-    inputs[:,:,input_map['x']] = vars['x']
+    inputs[:,:,input_map['sin_x']] = torch.sin(vars['x'])
+    inputs[:,:,input_map['cos_x']] = torch.cos(vars['x'])
     inputs[:,:,input_map['sx']] = vars['sx'].reshape((batch_size,1)).repeat((1,n_timesteps))
     inputs[:,:,input_map['sy']] = vars['sy'].reshape((batch_size,1)).repeat((1,n_timesteps))
 
@@ -42,8 +45,8 @@ def create_data(config, inputs, targets, mask):
 
 
 
-SD_1D_TRANS_TASK = Task('SD-1D_trans', 
-                    n_inputs=5, n_outputs=2, 
+SD_1D_TRANS_TASK = Task('SD-1D-trans', 
+                    n_inputs=6, n_outputs=2, 
                     task_specific_params=template_1D.default_params, 
                     create_data_func=create_data,
                     input_map=input_map,

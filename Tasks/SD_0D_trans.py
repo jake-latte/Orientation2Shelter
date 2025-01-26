@@ -9,16 +9,16 @@ from test_funcs import *
 
 import Tasks.vars_0D as template_0D
 
-target_map = {
-    'sin_sd': 0,
-    'cos_sd': 1
-}
-
 input_map = {
     'sin_hd': 0,
     'cos_hd': 1,
     'sx': 2,
     'sy': 3
+}
+
+target_map = {
+    'sin_sd': 0,
+    'cos_sd': 1
 }
 
 def create_data(config, inputs, targets, mask):
@@ -41,7 +41,7 @@ def create_data(config, inputs, targets, mask):
 
 
 
-SD_0D_TRANS_TASK = Task('SD-0D_trans', 
+SD_0D_TRANS_TASK = Task('SD-0D-trans', 
                     n_inputs=4, n_outputs=2, 
                     task_specific_params=template_0D.default_params, 
                     create_data_func=create_data,

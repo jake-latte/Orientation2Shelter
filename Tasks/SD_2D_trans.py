@@ -9,11 +9,6 @@ from test_funcs import *
 
 import Tasks.vars_2D as template_2D
 
-target_map = {
-    'sin_sd': 0,
-    'cos_sd': 1
-}
-
 input_map = {
     'sin_hd': 0,
     'cos_hd': 1,
@@ -22,6 +17,13 @@ input_map = {
     'sx': 4,
     'sy': 5
 }
+
+target_map = {
+    'sin_sd': 0,
+    'cos_sd': 1
+}
+
+
 
 def create_data(config, inputs, targets, mask):
     

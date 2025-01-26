@@ -113,11 +113,20 @@ class Task:
         task_register[self.name] = self
 
     # Create a copy of this object (usually to make a local copy of a global (i.e. registered) task object)
-    def copy(self) -> Any:
-        copy = Task(self.name, self.n_inputs, self.n_outputs, self.task_specific_params, self.create_data_func, 
-                    init_func=self.init_func, loss_func=self.loss_func, test_func=self.test_func, test_func_args=self.test_func_args, 
-                    input_map=self.input_map, target_map=self.target_map, register=False)
-        copy.config.update(**self.config.__dict__)
+    def copy(self, **kwargs) -> Any:
+        task_args = dict(
+            name=self.name, 
+            n_inputs=self.n_inputs, n_outputs=self.n_outputs, 
+            task_specific_params=self.task_specific_params, 
+            create_data_func=self.create_data_func, init_func=self.init_func, loss_func=self.loss_func, 
+            test_func=self.test_func, test_func_args=self.test_func_args, 
+            input_map=self.input_map, target_map=self.target_map,
+            register=False
+        )
+        task_args.update(**kwargs)
+        copy = Task(**task_args)
+        copy.config.update(**{k:v for k,v in self.config.__dict__.items() if k not in task_args})
+        copy.config.task = self.name
         return copy
 
     # Create an instance of a task from that saved in a checkpoint
@@ -133,8 +142,7 @@ class Task:
     @classmethod
     def named(self, tname: str, **kwargs) -> Any:
         try:
-            task = task_register[tname].copy()
-            task.__dict__.update(**kwargs)
+            task = task_register[tname].copy(**kwargs)
             return task
         except KeyError:
             print(f'No task named {tname}')

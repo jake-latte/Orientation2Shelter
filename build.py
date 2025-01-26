@@ -332,7 +332,7 @@ def build_from_command_line():
     # Extract task object from first argument
     task = None
     try:
-        task = task_register[task_name].copy()
+        task = Task.named(task_name)
     except:
         raise ValueError(f'{task_name} is not a defined task name.')
 

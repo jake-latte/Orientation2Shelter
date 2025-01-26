@@ -16,7 +16,7 @@ target_map = {
 }
 
 def create_data(config, inputs, targets, mask):
-    
+
     vars = Tasks.vars_1D_linvel.create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
     inputs, mask = Tasks.vars_1D_linvel.fill_inputs(config, inputs, mask, vars)
 

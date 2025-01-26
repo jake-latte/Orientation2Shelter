@@ -772,7 +772,7 @@ def path_integration_plot(task: Task, targets: np.ndarray, outputs: np.ndarray, 
             handles['pred_start'] = ax[i,j].scatter(outputs[k, t0, task.target_map['x']], outputs[k, t0, task.target_map['y']], color=pred_colour, label='Model Start', marker='o', s=100)
             handles['pred_end'] = ax[i,j].scatter(outputs[k, -1, task.target_map['x']], outputs[k, -1, task.target_map['y']], color=pred_colour, label='Model End', marker='x', s=100)
 
-    fig.legend(loc='lower center', ncols=3, handles=[
+    fig.legend(loc='lower center', handles=[
         handles['true_start'], handles['pred_start'],
         handles['true'], handles['pred'],
         handles['true_end'], handles['pred_end']

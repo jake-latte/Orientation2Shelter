@@ -95,9 +95,10 @@ def build(task: Task, net: RNN = None, optimiser: torch.optim.Optimizer = None, 
     config_name = config.get_name()
     build_dir = f'{config.savedir}/{config.time}-{config_name}'
     if not os.path.isdir(build_dir):
-            os.makedirs(build_dir)
-            outfile = open(f'{build_dir}/build.out', 'w')
-            sys.stdout = Tee(sys.stdout, outfile)
+        os.makedirs(build_dir)
+
+    outfile = open(f'{build_dir}/build.out', 'w')
+    sys.stdout = Tee(sys.stdout, outfile)
 
     # Define time at which to terminate training as max_hours from start timne
     killtime = time.time() + (config.max_hours * 60 * 60)

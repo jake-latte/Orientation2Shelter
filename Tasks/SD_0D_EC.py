@@ -33,7 +33,7 @@ def create_data(config, inputs, targets, mask):
 
 
 
-SD_0D_EC_TASK = Task('SD-0D-EC',
+SD_0D_EC_TASK = Task('SD-0D_EC',
                     task_specific_params=default_params, 
                     create_data_func=create_data,
                     init_func=template_EC.init_func,

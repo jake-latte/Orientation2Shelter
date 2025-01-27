@@ -47,7 +47,7 @@ def create_data(config, inputs, targets, mask):
 
 
 
-SD_2D_TRANS_TASK = Task('SD-2D_trans',
+SD_2D_TRANS_TASK = Task('SD-2D-trans',
                     task_specific_params=template_2D.default_params, 
                     create_data_func=create_data,
                     input_map=input_map,

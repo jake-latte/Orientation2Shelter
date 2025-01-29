@@ -16,6 +16,7 @@ default_params = {
     'av_step_std': 0.03,
     # Momentum of previous step's angular velocity
     'av_step_momentum': 0.8,
+    'av_step_zero_prob': 0.5
 }
 
 input_map = {
@@ -39,10 +40,16 @@ def create_data(config, for_training=True):
     # Initialise tensors to store the target angle and input angular velocity for each sequence
     angle, angular_velocity = torch.zeros((batch_size, n_timesteps)), torch.zeros((batch_size, n_timesteps))
 
+    zero_trials = torch.where(torch.rand((batch_size,)) < config.av_step_zero_prob)
+
     normal = torch.distributions.normal.Normal(loc=torch.zeros((batch_size,)), scale=torch.ones((batch_size,))*av_step_std)
     for t in range(init_duration, n_timesteps):
+        av_step = normal.sample() + av_step_momentum * angular_velocity[:, t-1]
 
-        angular_velocity[:,t] = normal.sample() + av_step_momentum * angular_velocity[:, t-1]
+        if t > n_timesteps*(1/4) and t < n_timesteps*(3/4):
+            av_step[zero_trials] = 0
+
+        angular_velocity[:,t] = av_step
     
     # Compute sequence's target angle as its initial angle + integral of angular velocity up to each timestep
     angle = torch.tile(angle_0.reshape((batch_size,1)), dims=(1,n_timesteps)) + torch.cumsum(angular_velocity, dim=1)

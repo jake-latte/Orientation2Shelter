@@ -17,10 +17,14 @@ default_params = {
     '2D_loss_threshold': 0.05,
 
 
-    'v_step_std': 0.001, 
-    'v_step_momentum': 0.6, 
-    'v_step_hd_bias': 0.01, 
+    'v_step_shape': 2,
+    'v_step_scale': 0.005,
+    'v_step_momentum': 0.3,
     'v_step_zero_prob': 0.5,
+
+    'v_step_std': 0.001,
+    'v_step_hd_bias': 0.01,
+
     'av_step_std': 0.1, 
     'av_step_momentum': 0.5,
     'av_step_zero_prob': 0.5,
@@ -39,29 +43,34 @@ target_map = {
 }
 
 def loss_func(task: Task, net: 'RNN', batch: dict) -> Tuple[torch.tensor, torch.tensor]:
+    for_training = (batch['inputs'].shape[0] == task.config.batch_size and batch['inputs'].shape[1] == task.config.n_timesteps)
+
     loss, outputs = default_loss_func(task, net, batch)
 
-    if task.config.stage==0 and loss.item() < task.config['0D_loss_threshold']:
-        task.config.stage = 1
-        print('Switching to 1D stage')
-    elif task.config.stage==1 and loss.item() < task.config['1D_loss_threshold']:
-        task.config.stage = 2
-        print('Switching to 2D stage')
-    elif task.config.stage>=2 and loss.item() < task.config['2D_loss_threshold']:
+    if 0<=task.config.stage<1 and loss.item() < task.config['0D_loss_threshold']:
+        task.config.stage += 0.1
+        print(f'Pushing to 1D stage {task.config.stage}')
+    elif 1<=task.config.stage<2 and loss.item() < task.config['1D_loss_threshold']:
+        task.config.stage += 0.1
+        print(f'Pushing to 2D stage {task.config.stage}')
+    elif 2<=task.config.stage and loss.item() < task.config['2D_loss_threshold']:
         if task.config.stage<102:
             task.config.stage += 1
-            print('Bumping 2D curriculum stage')
+            print(f'Bumping 2D curriculum stage {task.config.stage}')
 
 
     return loss, outputs
 
+def init_func(task):
+    assert task.config.n_timesteps != task.config.test_n_timesteps or task.config.batch_size != task.config.test_batch_size, 'test and training batches must be different'
 
 
 
 
 
 
-def create_curriculum_vars(config, for_training=False):
+
+def create_curriculum_vars(config, for_training=True):
     batch_size, n_timesteps = config.batch_size if for_training else config.test_batch_size, config.n_timesteps if for_training else config.test_n_timesteps
     init_duration = config.init_duration
     v_step_std, v_step_momentum, v_step_hd_bias, v_step_zero_prob = config.v_step_std, config.v_step_momentum, config.v_step_hd_bias, config.v_step_zero_prob
@@ -129,38 +138,38 @@ def create_curriculum_vars(config, for_training=False):
     return vars
 
 def create_data(config, inputs, targets, mask):
-    batch_size, n_timesteps, init_duration = config.batch_size, config.n_timesteps, config.init_duration
     for_training = (inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps)
+    batch_size, n_timesteps = config.batch_size if for_training else config.test_batch_size, config.n_timesteps if for_training else config.test_n_timesteps
 
     vars = {}
     if for_training:
-        if config.stage==0:
+        if 0<=config.stage<1:
 
             vars = template_0D.create_data(config)
 
-            vars['x'] = (2*torch.rand((config.batch_size,1)) - 1).repeat((1,n_timesteps))
-            vars['y'] = (2*torch.rand((config.batch_size,1)) - 1).repeat((1,n_timesteps))
+            vars['x'] = (2*torch.rand((batch_size,1)) - 1).repeat((1,n_timesteps))
+            vars['y'] = (2*torch.rand((batch_size,1)) - 1).repeat((1,n_timesteps))
 
             vars['sx'] = vars['sx'] + vars['x'][:,0]
             vars['sy'] = vars['sy'] + vars['y'][:,0]
 
             vars['xv'] = vars['yv'] = torch.zeros((batch_size, n_timesteps))
 
-        if config.stage==1:
+        elif 1<=config.stage<2:
 
             vars = template_1D.create_data(config)
 
-            vars['sx'] = (2*torch.rand((config.batch_size,1)) - 1).repeat((1,n_timesteps))
-            vars['sy'] = (2*torch.rand((config.batch_size,1)) - 1).repeat((1,n_timesteps))
+            vars['sx'] = 2*torch.rand((batch_size,1)) - 1
+            vars['sy'] = 2*torch.rand((batch_size,1)) - 1
 
-            vars['y'] = vars['sy'] + torch.sin(vars['x'])
-            vars['x'] = vars['sx'] + torch.cos(vars['x'])
+            vars['y'] = vars['sy'].repeat((1,n_timesteps)) + torch.sin(vars['x'])
+            vars['x'] = vars['sx'].repeat((1,n_timesteps)) + torch.cos(vars['x'])
 
         else:
             vars = create_curriculum_vars(config)
 
     else:
-        vars = template_2D.create_data(config, for_training=True)
+        vars = template_2D.create_data(config, for_training=False)
 
 
     inputs, mask = template_2D.fill_inputs(config, inputs, mask, vars)
@@ -183,7 +192,8 @@ PI_HD_SD_2D_CURRICULUM_TASK = Task('PI_HD_SD-2D_curriculum',
                                     target_map=target_map,
                                     test_func=test_tuning,
                                     test_func_args=dict(tuning_vars_list=['HD', 'ego_SD', 'allo_SD', 'AV', 'x', 'y']),
-                                    loss_func=loss_func)
+                                    loss_func=loss_func,
+                                    init_func=init_func)
 
 
 

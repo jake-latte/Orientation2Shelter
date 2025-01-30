@@ -102,15 +102,15 @@ def init_func(task):
     if config.n_inputs == 0:
         config.n_inputs = config.n_place_cells + config.n_head_direction_cells
 
-        config.__dict__['place_cell_centers'] = 2*torch.rand(config.n_place_cells, 2) - 1
+        config.dict['place_cell_centers'] = 2*torch.rand(config.n_place_cells, 2) - 1
 
-        config.__dict__['head_direction_cell_centers'] = torch.rand(config.n_head_direction_cells) * 2*np.pi
+        config.dict['head_direction_cell_centers'] = torch.rand(config.n_head_direction_cells) * 2*np.pi
         scale = torch.min(torch.stack([
             torch.sum(
                 torch.exp(
                     config.head_direction_cell_concentration * torch.cos(config.head_direction_cell_centers[i] - config.head_direction_cell_centers)))
             for i in range(config.n_head_direction_cells)], dim=0)) / np.exp(config.head_direction_cell_concentration)
-        config.__dict__['head_direction_cell_scale'] = scale.item()
+        config.dict['head_direction_cell_scale'] = scale.item()
 
         input_map = {}
         for i in range(config.n_place_cells):

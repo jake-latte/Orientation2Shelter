@@ -116,7 +116,7 @@ class Task:
         )
         task_args.update(**kwargs)
         copy = Task(**task_args)
-        copy.config.update(**{k:v for k,v in self.config.__dict__.items() if k not in task_args})
+        copy.config.update(**{k:v for k,v in self.config.dict.items() if k not in task_args})
         copy.config.task = self.name
         return copy
 

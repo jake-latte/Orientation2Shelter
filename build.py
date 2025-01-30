@@ -1,5 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
+from multiprocessing import Manager
 
 import time
 import datetime
@@ -163,7 +164,7 @@ def build(task: Task, net: RNN = None, optimiser: torch.optim.Optimizer = None, 
             'optimiser_state_dict': optimiser.state_dict(),
             'test_losses': test_losses,
             'train_losses': train_losses,
-            'config': config.__dict__,
+            'config': config.dict,
         }
         
         torch.save(checkpoint, checkpoint_filepath)
@@ -339,6 +340,9 @@ def build_from_command_line():
         task = Task.named(task_name)
     except:
         raise ValueError(f'{task_name} is not a defined task name.')
+    
+    config_manager = Manager()
+    task.config.manage(config_manager)
 
 
     net, optimiser, train_losses, test_losses = None, None, None, None
@@ -411,9 +415,9 @@ def build_from_command_line():
                 else:
                     key, value = args[arg_i][1:], args[arg_i+1]
                 
-                if key in task.config.__dict__:
+                if key in task.config.dict:
                     try:
-                        type_cast = type(task.config.__dict__[key])
+                        type_cast = type(task.config.dict[key])
 
                         if args[arg_i] == '-P':
                             for value in args[arg_i+2:]:
@@ -424,7 +428,7 @@ def build_from_command_line():
                         else:
                             if type_cast == type(True):
                                 value = False if 'f' in value.lower() else True
-                            elif task.config.__dict__[key] is None:
+                            elif task.config.dict[key] is None:
                                 params[key] = value
                                 continue
                             params[key] = type_cast(value)
@@ -462,12 +466,12 @@ def build_from_command_line():
             for i in range(num_models):
                 parallel_task = task.copy()
                 for key, vals in parallel_param_settings.items():
-                    parallel_task.config.__dict__[key] = vals[i]
+                    parallel_task.config.dict[key] = vals[i]
                     if torch.cuda.is_available():
-                        parallel_task.config.__dict__['device'] = f'cuda:{i % torch.cuda.device_count()}'
+                        parallel_task.config.dict['device'] = f'cuda:{i % torch.cuda.device_count()}'
                     else:
-                        parallel_task.config.__dict__['device'] = f'cpu'
-                    parallel_task.config.__dict__['time'] = task.config.time
+                        parallel_task.config.dict['device'] = f'cpu'
+                    parallel_task.config.dict['time'] = task.config.time
                 parallel_task.config.make_name(include=name_param_keys)
 
                 p = mp.Process(target=build, args=(parallel_task,))

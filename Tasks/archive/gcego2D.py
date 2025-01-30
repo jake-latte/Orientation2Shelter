@@ -24,8 +24,8 @@ def init_func(task):
     if config.n_inputs == -1:
         config.n_inputs = config.n_place_cells + config.n_head_direction_cells + 2
 
-        config.__dict__['place_cell_centers'] = torch.rand(config.n_place_cells, 2)
-        config.__dict__['head_direction_cell_centers'] = torch.rand(config.n_head_direction_cells) * 2*np.pi
+        config.dict['place_cell_centers'] = torch.rand(config.n_place_cells, 2)
+        config.dict['head_direction_cell_centers'] = torch.rand(config.n_head_direction_cells) * 2*np.pi
 
         input_map = {
             'av': 0,

@@ -5,6 +5,7 @@ import time
 
 from typing import Set
 
+from multiprocessing import Manager
 
 ############################################################################################################################################
 ######################################################## CONFIGURATION #####################################################################
@@ -26,17 +27,20 @@ class Config:
     
     '''
     def __init__(self, **kwargs):
-        # Initialise with default parameters (to ensure backward compatability)
-        self.__dict__.update(**default_params)
+        self.__dict__['dict'] = {}
+        self.dict.update(**default_params)
         if len(kwargs) > 0:
                 # Store given parameters
                 self.update(**kwargs)
         # Create space for name of build
         self.name = None
         # Store time build was made
-        if 'time' in self.__dict__:
-            self.__dict__['time'] = time.time()
+        if 'time' in self.dict:
+            self.time = time.time()
 
+
+    def manage(self, manager):
+        self.__dict__['dict'] = manager.dict(self.dict)
 
 
     '''
@@ -83,28 +87,45 @@ class Config:
         
         parts = [f'task:{self.task}']
         for key in include:
-            if key in self.__dict__ and key not in exclude and key != 'task':
-                parts.append(f'{key}:{self.__dict__[key]}')
+            if key in self.dict and key not in exclude and key != 'task':
+                parts.append(f'{key}:{self[key]}')
         
         self.name = '-'.join(parts)
         return self.name
     
 
 
-
-    # Allows parameter access directly by key (i.e. config_obj[key])
-    def __getitem__(self, key):
-        return self.__dict__[key]
-
     # Allows update of parameter dictionary
     def update(self, **kwargs):
-        self.__dict__.update(kwargs)
-        
-    # Prints all parameters
-    def __str__(self):
+        self.dict.update(kwargs)
 
+    # Creates seed if none supplied
+    def seed(self):
+        if self.build_seed == -1:
+            self.build_seed = random.randint(0, 2**32 - 1)
+    
+
+
+
+    def __getattr__(self, key):
+        if key=='dict':
+            return self.__dict__['dict']
+        elif 'dict' in self.__dict__ and key in self.__dict__['dict']:
+            return self.__dict__['dict'][key]
+        raise AttributeError(f"Config parameter '{key}' not found")
+    
+    def __getitem__(self, key):
+        return self.__getattr__(key)
+
+    def __setattr__(self, key, value):
+        try:
+            self.__dict__['dict'][key] = value
+        except KeyError:
+            raise AttributeError(f"Config parameter '{key}' not found")
+        
+    def __str__(self):
         res = f'\n{"-"*25} CONFIG {"-"*25}\n'
-        for key, val in self.__dict__.items():
+        for key, val in self.dict.items():
             flag = '\t'
             if type(val)==torch.Tensor:
                 res += (f'{flag}{key}: {val.shape}\n')
@@ -113,11 +134,6 @@ class Config:
         res += ('\n' + '-'*58)
 
         return res
-
-    # Creates seed if none supplied
-    def seed(self):
-        if self.build_seed == -1:
-            self.build_seed = random.randint(0, 2**32 - 1)
 
 
 
@@ -242,7 +258,7 @@ default_params = {
     # Length of sequences to store in testing dataset
     'test_n_timesteps': 500,
     # Number of sequences to store in testing dataset
-    'test_batch_size': 500,
+    'test_batch_size': 1000,
 
     # (Matplotlib) standard dimensions of figures created during testing
     'test_fig_width': 20,

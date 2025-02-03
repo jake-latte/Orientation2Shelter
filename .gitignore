@@ -1,6 +1,4 @@
 __pycache__
-trained-models/*
-testing.ipynb
 ratinabox/*
 trained-models/*
 *.sh

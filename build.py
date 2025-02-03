@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
-from multiprocessing import Manager
+from torch.multiprocessing import Manager
 
 import time
 import datetime
@@ -164,7 +164,7 @@ def build(task: Task, net: RNN = None, optimiser: torch.optim.Optimizer = None, 
             'optimiser_state_dict': optimiser.state_dict(),
             'test_losses': test_losses,
             'train_losses': train_losses,
-            'config': config.dict,
+            'config': dict(config.dict),
         }
         
         torch.save(checkpoint, checkpoint_filepath)

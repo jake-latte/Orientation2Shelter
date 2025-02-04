@@ -10,9 +10,7 @@ from config import *
 from test_funcs import *
 
 
-import Tasks.vars_1D_linvel as template_1D
-
-default_params = template_1D.default_params
+default_params = Tasks.vars_2D_linvel.default_params
 
 
 

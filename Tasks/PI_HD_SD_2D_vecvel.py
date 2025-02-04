@@ -9,7 +9,7 @@ from test_funcs import *
 
 import Tasks.vars_2D_vecvel as template_2D_vecvel
 
-default_parms = {
+default_params = {
     **template_2D_vecvel.default_params,
     'PI_penalty_lambda': 10
 }

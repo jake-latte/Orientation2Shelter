@@ -9,6 +9,37 @@ from test_funcs import *
 
 import Tasks.vars_2D_vecvel as template_2D_vecvel
 
+default_parms = {
+    **template_2D_vecvel.default_params,
+    'PI_penalty_lambda': 10
+}
+
+def loss_func(task: Task, net: 'RNN', batch: dict) -> Tuple[torch.tensor, torch.tensor]:
+    for_training = (batch['inputs'].shape[0] == task.config.batch_size and batch['inputs'].shape[1] == task.config.n_timesteps)
+
+    _, activity, outputs = net(batch['inputs'], noise=batch['noise'])
+
+    loss_all = torch.sum(torch.square(outputs - batch['targets'])[batch['mask']]) / torch.sum(batch['mask']==1)
+    loss_PI = torch.sum(torch.square(
+        outputs[:,:,[task.target_map['x'], task.target_map['y']]] - batch['targets'][:,:,[task.target_map['x'], task.target_map['y']]])[batch['mask'][:,:,[task.target_map['x'], task.target_map['y']]]]) / torch.sum(batch['mask'][:,:,[task.target_map['x'], task.target_map['y']]]==1)
+    
+    loss_prediction = loss_all + (task.config.PI_penalty_lambda - 1) * loss_PI
+
+    # Rate L2
+    loss_activity = task.config.rate_lambda * torch.mean(activity**2)
+
+    # I think more appropriate:
+    loss_weight = task.config.weight_lambda * (torch.mean(net.W_rec.weight**2) + torch.mean(net.W_in.weight**2) + torch.mean(net.W_out.weight**2))
+
+    loss = loss_prediction + loss_activity + loss_weight
+
+    return loss, outputs
+
+    
+
+
+    return loss, outputs
+
 target_map = {
     'x': 0,
     'y': 1,
@@ -35,7 +66,7 @@ def create_data(config, inputs, targets, mask):
 
 
 PI_HD_SD_2D_vecvel_TASK = Task('PI_HD_SD-2D_vecvel',
-                            task_specific_params=template_2D_vecvel.default_params, 
+                            task_specific_params=default_params, 
                             create_data_func=create_data,
                             input_map=template_2D_vecvel.input_map,
                             target_map=target_map,

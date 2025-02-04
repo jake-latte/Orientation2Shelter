@@ -28,7 +28,7 @@ def ReTanh(x):
 
 
 def minimise_from_x_0(x_0: np.ndarray, u: np.ndarray, t: int, vars: Dict[str, np.ndarray], W_rec: np.ndarray, W_in: np.ndarray, b: np.ndarray, 
-                      checkpoint_dir: str, verbose: bool, i: int, queue: mp.Queue, queue_i: int, reverse: bool=False):
+                      checkpoint_dir: str, verbose: bool, i: int, queue: mp.Queue, queue_i: int):
     if queue is not None:
         assert queue_i is not None
 
@@ -41,9 +41,7 @@ def minimise_from_x_0(x_0: np.ndarray, u: np.ndarray, t: int, vars: Dict[str, np
         return (-x + W_rec@ReTanh(x) + W_in@u + b)
 
     def _q(x):
-        q = (1/2) * np.linalg.norm(_F(x))**2
-        q *= -1 if reverse else 1
-        return q
+        return (1/2) * np.linalg.norm(_F(x))**2
 
 
     res = minimize(_q, x_0, method='Powell', tol=10e-9, options={'maxiter': 1000})
@@ -71,7 +69,7 @@ def minimise_from_x_0(x_0: np.ndarray, u: np.ndarray, t: int, vars: Dict[str, np
 
 
 
-def find_fixed_points(task, net, checkpoint_path, num_x_0=100, keep_inputs=[], keep_times=[], reverse=False, verbose=False, num_processes=None):  
+def find_fixed_points(task, net, checkpoint_path, num_x_0=100, keep_inputs=[], keep_times=[], verbose=False, num_processes=None):  
 
     checkpoint_dir = '/'.join(checkpoint_path.split('/')[:-1])
     if not os.path.exists(f'{checkpoint_dir}/analyse-temp'):
@@ -124,7 +122,7 @@ def find_fixed_points(task, net, checkpoint_path, num_x_0=100, keep_inputs=[], k
     processes = []
     for i in range(c):
         queue_i = i
-        p = mp.Process(target=minimise_from_x_0, args=(X[i], U[i], T[i], vars[i], W_rec, W_in, b, checkpoint_dir, verbose, i, queue, queue_i, reverse))
+        p = mp.Process(target=minimise_from_x_0, args=(X[i], U[i], T[i], vars[i], W_rec, W_in, b, checkpoint_dir, verbose, i, queue, queue_i))
         p.start()
         processes.append(p)
 
@@ -132,7 +130,7 @@ def find_fixed_points(task, net, checkpoint_path, num_x_0=100, keep_inputs=[], k
         queue_i = queue.get()
 
         processes[queue_i].join()
-        p = mp.Process(target=minimise_from_x_0, args=(X[next_i], U[next_i], T[next_i], vars[next_i], W_rec, W_in, b, checkpoint_dir, verbose, next_i, queue, queue_i, reverse))
+        p = mp.Process(target=minimise_from_x_0, args=(X[next_i], U[next_i], T[next_i], vars[next_i], W_rec, W_in, b, checkpoint_dir, verbose, next_i, queue, queue_i))
         p.start()
         processes[queue_i] = p
 
@@ -168,7 +166,7 @@ def recover_fixed_points_from_temp(checkpoint_path):
             'state': [],
             'input': [],
             'time': [],
-            'vars': {}
+            'vars': []
         }
 
     n_recovered = 0
@@ -443,13 +441,11 @@ if __name__ == '__main__':
                 else:
                     keep_times.append(int(keep_time))
 
-        reverse = '--reverse' in sys.argv
-
         task.config.update(batch_size=num_x_0, n_timesteps=task.config.n_timesteps if len(keep_times)==0 else max(max(keep_times)+1, task.config.init_duration+1))
 
         net = RNN(task)
         net.load_state_dict(checkpoint['net_state_dict'])
 
-        find_fixed_points(task, net, checkpoint_path=checkpoint_path, num_x_0=num_x_0, keep_inputs=keep_inputs, keep_times=keep_times, verbose=True, reverse=reverse)
+        find_fixed_points(task, net, checkpoint_path=checkpoint_path, num_x_0=num_x_0, keep_inputs=keep_inputs, keep_times=keep_times, verbose=True)
     
 

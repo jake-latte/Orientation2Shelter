@@ -114,9 +114,10 @@ class Task:
             input_map=self.input_map, target_map=self.target_map,
             register=False
         )
-        task_args.update(**kwargs)
+        task_args.update(**{k:v for k,v in kwargs.items() if k in task_args})
         copy = Task(**task_args)
         copy.config.update(**{k:v for k,v in self.config.dict.items() if k not in task_args})
+        copy.config.update(**{k:v for k,v in kwargs.items() if k in copy.config.dict})
         copy.config.task = self.name
         return copy
 

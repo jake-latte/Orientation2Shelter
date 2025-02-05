@@ -166,7 +166,7 @@ def recover_fixed_points_from_temp(checkpoint_path):
             'state': [],
             'input': [],
             'time': [],
-            'vars': []
+            'vars': {}
         }
 
     n_recovered = 0
@@ -176,8 +176,10 @@ def recover_fixed_points_from_temp(checkpoint_path):
         tempresult = torch.load(f'{checkpoint_dir}/analyse-temp/{tempfile}', map_location='cpu')
         for key in result.keys():
             if key=='vars':
-                for var_key in result[key].keys():
-                    result[key][var_key].append(tempresult[key][var_key])
+                for vars_key in tempresult['vars'].keys():
+                    if vars_key not in result['vars']:
+                        result['vars'][vars_key] = []
+                    result['vars'][vars_key].append(tempresult['vars'][vars_key])
             else:
                 result[key].append(tempresult[key])
         n_recovered += 1
@@ -414,6 +416,7 @@ if __name__ == '__main__':
 
     if '-r' in sys.argv:
         recover_fixed_points_from_temp(checkpoint_path)
+
     else:
 
         num_x_0 = 100

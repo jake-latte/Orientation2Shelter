@@ -88,7 +88,7 @@ def create_data(config, for_training=True):
         # Ensure k is bounded between 0 and 1 (agents cannot scale beyond their velocity or reverse direction)
         max_k = torch.clamp(max_k, 0, 1)
 
-        v_step = max_k * v_step
+        v_step = v_step #max_k * v_step
         xv_step = torch.cos(HD[:, t]) * v_step
         yv_step = torch.sin(HD[:, t]) * v_step
 

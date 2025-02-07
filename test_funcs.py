@@ -422,7 +422,7 @@ def get_tuning_generalised(task: Task, inputs: np.ndarray, targets: np.ndarray, 
 
         X = vars['x']
 
-        position_bins = np.linspace(0, 1, n_position_bins)
+        position_bins = np.linspace(-1, 1, n_position_bins)
 
         tuning_vars['x'] = dict(var=X, bins=position_bins, title='X Position')
 
@@ -430,7 +430,7 @@ def get_tuning_generalised(task: Task, inputs: np.ndarray, targets: np.ndarray, 
 
         Y = vars['y']
 
-        position_bins = np.linspace(0, 1, n_position_bins)
+        position_bins = np.linspace(-1, 1, n_position_bins)
 
         tuning_vars['y'] = dict(var=Y, bins=position_bins, title='Y Position')
     

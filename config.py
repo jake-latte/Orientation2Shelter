@@ -176,10 +176,8 @@ default_params = {
     # Flags detemining which parameter sets to learn
     'learn_x_0': True,
     'learn_W_in': True,
-    'learn_W_in_bias': True,
     'learn_W_rec': True,
     'learn_W_out': True,
-    'learn_W_out_bias': True,
 
     # Standard deviation of noise terms (zero-mean normallly distributed) in continuous time equation
     'state_noise_std': 0.1,
@@ -187,7 +185,9 @@ default_params = {
     'output_noise_std': 0.0,
 
     # Coeefficient of L2 regularisation term in loss function on network weights and activity
+    'weight_loss_type': 2,
     'weight_lambda': 0.1,
+    'rate_loss_type': 2,
     'rate_lambda': 0.1,  
 
     # Rank of recurrent matrix (for use with low-rank RNNs)
@@ -245,7 +245,7 @@ default_params = {
     # Maximum learning rate
     'max_lr': 1e-3,
     # Mimumum learning rate
-    'min_lr': 0.000001,
+    'min_lr': 1e-9,
     # Initial learning rate schedule: higher values means increases to max quicker
     'lr_initial_schedule': 1e-9,
     # Anneal learning rate schedule: higher values means decreases to min quicker

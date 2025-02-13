@@ -151,22 +151,29 @@ def default_loss_func(task: Task, net: 'RNN', batch: dict) -> Tuple[torch.tensor
     # MSE of (masked) outputs
     loss_prediction = torch.sum(torch.square(outputs - batch['targets'])[batch['mask']]) / torch.sum(batch['mask']==1)
 
-    # Rate L2
-    loss_activity = task.config.rate_lambda * torch.mean(activity**2)
+    # Rate Loss
+    if task.config.rate_loss_type == 1:
+        loss_activity = task.config.rate_lambda * torch.mean(torch.abs(activity))
+    else:
+        loss_activity = task.config.rate_lambda * torch.mean(torch.square(activity))
 
-    # Weight L2
-    # From Cueva's code:
-    # weights = torch.cat([p.flatten() for p in net.parameters()])
-    # loss_weight = task.config.weight_lambda * torch.mean(weights**2)
-
-    # I think more appropriate:
-    loss_weight = task.config.weight_lambda * (torch.mean(net.W_rec.weight**2) + torch.mean(net.W_in.weight**2) + torch.mean(net.W_out.weight**2))
+    # Weight Loss
+    if task.config.weight_loss_type == 1:
+        loss_weight = 0
+        for weight, include in zip([net.W_rec.weight, net.W_in.weight, net.W_out.weight], [task.config.learn_W_rec, task.config.learn_W_in, task.config.learn_W_out]):
+            if include:
+                loss_weight += task.config.weight_lambda * torch.mean(torch.abs(weight))
+    else:
+        loss_weight = 0
+        for weight, include in zip([net.W_rec.weight, net.W_in.weight, net.W_out.weight], [task.config.learn_W_rec, task.config.learn_W_in, task.config.learn_W_out]):
+            if include:
+                loss_weight += task.config.weight_lambda * torch.mean(torch.square(weight))
 
     loss = loss_prediction + loss_activity + loss_weight
 
     return loss, outputs
 
-def rate_l2_weight_l1_loss_func(task: Task, net: 'RNN', batch: dict) -> Tuple[torch.tensor, torch.tensor]:
+# def rate_l2_weight_l1_loss_func(task: Task, net: 'RNN', batch: dict) -> Tuple[torch.tensor, torch.tensor]:
     _, activity, outputs = net(batch['inputs'], noise=batch['noise'])
 
     # MSE of (masked) outputs

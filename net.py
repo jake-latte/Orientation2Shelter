@@ -64,10 +64,8 @@ class RNN(nn.Module):
 
         self.learn_x_0 = kwargs.get('learn_x_0', config.learn_x_0)
         self.learn_W_in = kwargs.get('learn_W_in', config.learn_W_in)
-        self.learn_W_in_bias = kwargs.get('learn_W_in_bias', config.learn_W_in_bias)
         self.learn_W_rec = kwargs.get('learn_W_rec', config.learn_W_rec)
         self.learn_W_out = kwargs.get('learn_W_out', config.learn_W_out)
-        self.learn_W_out_bias = kwargs.get('learn_W_out_bias', config.learn_W_out_bias)
 
         self.state_noise_std = kwargs.get('state_noise_std', config.state_noise_std)
         self.rate_noise_std = kwargs.get('rate_noise_std', config.rate_noise_std)
@@ -92,7 +90,7 @@ class RNN(nn.Module):
         # W_in bias
         input_bias = 0.1 + 0.01*torch.randn(self.n_neurons)
         self.W_in.bias = torch.nn.Parameter(torch.squeeze(input_bias))
-        self.W_in.bias.requires_grad = self.learn_W_in_bias
+        self.W_in.bias.requires_grad = self.learn_W_in
 
 
 
@@ -113,7 +111,7 @@ class RNN(nn.Module):
         # W_out (feed-forward output weights)
         self.W_out = nn.Linear(self.n_neurons, self.n_outputs, bias=True)
         self.W_out.weight.requires_grad = self.learn_W_out
-        self.W_out.bias.requires_grad = self.learn_W_out_bias
+        self.W_out.bias.requires_grad = self.learn_W_out
 
 
         # Initialise initial state

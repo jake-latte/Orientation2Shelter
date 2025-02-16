@@ -186,9 +186,9 @@ default_params = {
 
     # Coeefficient of L2 regularisation term in loss function on network weights and activity
     'weight_loss_type': 2,
-    'weight_lambda': 0.1,
+    'weight_lambda': 0.01,
     'rate_loss_type': 2,
-    'rate_lambda': 0.1,  
+    'rate_lambda': 0.01,  
 
     # Rank of recurrent matrix (for use with low-rank RNNs)
     'rank': None,

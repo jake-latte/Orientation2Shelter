@@ -75,18 +75,5 @@ if __name__ == '__main__':
         processes.append(p)
     for p in processes:
         p.join()
-
-
-# for i, param_values in enumerate(random_subset):
-#     params = dict(zip(search_hyperparameters.keys(), param_values))
-#     print(params)
-
-#     name = f'{i}'
-#     device = f'cuda:{i % n_gpus}' if n_gpus > 0 else 'cpu'
-
-#     task = Task.named(task_name, build_seed=-1, name=name, savedir=results_folder, **params)
-
-
-#     # build(task)
     
     

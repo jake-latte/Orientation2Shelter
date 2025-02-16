@@ -87,10 +87,10 @@ class Task:
 
         if test_func is not None:
             self.test_func = test_func
-            self.test_func_args = test_func_args
         else:
             from test_funcs import test_general
             self.test_func = test_general
+        self.test_func_args = test_func_args
 
         # Register if desired
         if register:
@@ -124,6 +124,7 @@ class Task:
     # Create an instance of a task from that saved in a checkpoint
     @classmethod
     def from_checkpoint(self, checkpoint: dict) -> Any:
+        print(task_register.keys())
         task = task_register[checkpoint['config']['task']]
         copy = Task(task.name, task.task_specific_params, task.create_data_func, 
                     init_func=task.init_func, loss_func=task.loss_func, test_func=task.test_func, test_func_args=task.test_func_args, 

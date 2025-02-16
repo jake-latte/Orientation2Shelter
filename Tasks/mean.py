@@ -69,8 +69,7 @@ MEAN_TASK = Task('mean',
                     task_specific_params=default_params, 
                     create_data_func=create_data,
                     input_map=input_map,
-                    target_map=target_map,
-                    test_func=test_tuning)
+                    target_map=target_map)
 
 
 

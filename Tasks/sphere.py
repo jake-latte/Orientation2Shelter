@@ -63,9 +63,9 @@ def create_data(config, inputs, targets, mask):
             else:
                 elev_out[this_time+config.pulse_length:] = this_elev
 
-            targets[trial, :, target_map['x']] = torch.acos(azim_out)*torch.sin(elev_out)
-            targets[trial, :, target_map['y']] = torch.asin(azim_out)*torch.sin(elev_out)
-            targets[trial, :, target_map['z']] = torch.acos(elev_out)
+            targets[trial, :, target_map['x']] = torch.sin(elev_out)*torch.cos(azim_out)
+            targets[trial, :, target_map['y']] = torch.sin(elev_out)*torch.sin(azim_out)
+            targets[trial, :, target_map['z']] = torch.cos(elev_out)
 
     return inputs, targets, {}, mask
 

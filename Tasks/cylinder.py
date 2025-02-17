@@ -33,7 +33,7 @@ def create_data(config, inputs, targets, mask):
 
         n_r = torch.randint(0, config.max_angles_per_trial, (1,))
         r_times = torch.randint(0, config.n_timesteps, (n_r,)).sort()[0]
-        r_vals = 2*torch.rand((n_angles,)) - 1
+        r_vals = 2*torch.rand((n_r,)) - 1
         r_out = torch.zeros((config.n_timesteps,))
 
         for i in range(n_angles):

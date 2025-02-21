@@ -81,7 +81,7 @@ class RNN(nn.Module):
         self.W_in = nn.Linear(self.n_inputs, self.n_neurons, bias=True)
         # W_in weights
         if self.W_in_init == 'normal':
-            nn.init.normal_(self.W_in.weight, mean=0, std=1 / np.sqrt(self.n_inputs))
+            nn.init.normal_(self.W_in.weight, mean=0, std=self.hidden_g / np.sqrt(self.n_inputs))
         elif self.W_in_init == 'orthogonal':
             nn.init.orthogonal_(self.W_in.weight, gain=torch.nn.init.calculate_gain('relu') * self.hidden_g)
         else:

@@ -93,6 +93,8 @@ def build(task: Task, net: RNN = None, optimiser: torch.optim.Optimizer = None, 
     np.random.seed(config.build_seed)
     if torch.config.precise:
         torch.set_default_dtype(torch.float64)
+        if net is not None:
+            net.double()
 
     # Define name for the build and save directory
     config_name = config.get_name()
@@ -380,6 +382,8 @@ def build_from_command_line():
 
                 # Update device being trained on
                 checkpoint['config']['device'] = device
+                if checkpoint['config']['precise']:
+                    torch.set_default_dtype(torch.float64)
                 
                 # Get task from checkpoint
                 task = Task.from_checkpoint(checkpoint)

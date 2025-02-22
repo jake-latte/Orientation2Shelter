@@ -91,7 +91,7 @@ def build(task: Task, net: RNN = None, optimiser: torch.optim.Optimizer = None, 
     config.seed()
     torch.manual_seed(config.build_seed)
     np.random.seed(config.build_seed)
-    if torch.config.precise:
+    if task.config.precise:
         torch.set_default_dtype(torch.float64)
         if net is not None:
             net.double()
@@ -382,11 +382,17 @@ def build_from_command_line():
 
                 # Update device being trained on
                 checkpoint['config']['device'] = device
-                if checkpoint['config']['precise']:
-                    torch.set_default_dtype(torch.float64)
-                
                 # Get task from checkpoint
                 task = Task.from_checkpoint(checkpoint)
+                if task.config.precise:
+                    torch.set_default_dtype(torch.float64)
+                elif '-precise' in args:
+                    arg_i = args.index('-precise')
+                    use_precision = True if args[arg_i+1] in ['True', 'T', 1] else False
+                    if use_precision:
+                        print('Using double precision')
+                        torch.set_default_dtype(torch.float64)
+
 
                 # Get model from checkpoint
                 if task.config.rank is not None:

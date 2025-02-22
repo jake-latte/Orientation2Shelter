@@ -28,7 +28,7 @@ input_map = {
 }
 
 
-def create_data(config, for_training=True):
+def create_data_routine(config, for_training=True):
     # Create local copies of parameter properties (for brevity's sake)
     batch_size, n_timesteps = config.batch_size if for_training else config.test_batch_size, config.n_timesteps if for_training else config.test_n_timesteps
     init_duration = config.init_duration
@@ -47,7 +47,7 @@ def create_data(config, for_training=True):
     normal = torch.distributions.normal.Normal(loc=torch.zeros((batch_size,)), scale=torch.ones((batch_size,))*av_step_std)
     for t in range(init_duration, n_timesteps):
         av_1_step = normal.sample() + av_step_momentum * av_1[:, t-1]
-        av_2_step = normal.sample() + av_step_momentum * av_2[:, t-1]
+        av_2_step = 0#normal.sample() + av_step_momentum * av_2[:, t-1]
 
         if t > n_timesteps*(1/4) and t < n_timesteps*(3/4):
             av_1_step[zero_trials] = 0
@@ -89,7 +89,7 @@ target_map = {
 
 def create_data(config, inputs, targets, mask):
     
-    vars = create_data(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
+    vars = create_data_routine(config, for_training=(inputs.shape[0] == config.batch_size and inputs.shape[1] == config.n_timesteps))
     inputs, mask = fill_inputs(config, inputs, mask, vars)
 
     targets[:,:,target_map['sin_theta_1']] = torch.sin(vars['theta_1'])

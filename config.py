@@ -193,6 +193,8 @@ default_params = {
     # Rank of recurrent matrix (for use with low-rank RNNs)
     'rank': None,
 
+    'precise': False,
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Build Parameters~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 

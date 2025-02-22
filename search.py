@@ -69,7 +69,7 @@ if __name__ == '__main__':
         params = dict(zip(search_hyperparameters.keys(), param_values))
         name = f'{i}'
         device = f'cuda:{i % n_gpus}' if n_gpus > 0 else 'cpu'
-        task = Task.named(task_name, name=name, savedir=results_folder, build_seed=0, **params)
+        task = Task.named(task_name, name=name, savedir=results_folder, build_seed=0, max_lr=1e-4, **params)
         p = mp.Process(target=run_build, args=(task, device))
         p.start()
         processes.append(p)

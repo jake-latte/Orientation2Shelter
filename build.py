@@ -91,6 +91,8 @@ def build(task: Task, net: RNN = None, optimiser: torch.optim.Optimizer = None, 
     config.seed()
     torch.manual_seed(config.build_seed)
     np.random.seed(config.build_seed)
+    if torch.config.precise:
+        torch.set_default_dtype(torch.float64)
 
     # Define name for the build and save directory
     config_name = config.get_name()

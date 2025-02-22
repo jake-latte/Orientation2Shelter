@@ -43,7 +43,7 @@ def create_data(config, inputs, targets, mask):
     return inputs, targets, vars, mask
 
 
-PLANE_TASK = Task('plane',
+PLANE_TASK = Task('PLANE',
                     task_specific_params=default_params, 
                     create_data_func=create_data,
                     input_map=input_map,

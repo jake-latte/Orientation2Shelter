@@ -44,7 +44,7 @@ def create_data(config, inputs, targets, mask):
     return inputs, targets, vars, mask
 
 
-SPHERE_TASK = Task('sphere',
+SPHERE_TASK = Task('SPHERE',
                     task_specific_params=default_params, 
                     create_data_func=create_data,
                     input_map=input_map,

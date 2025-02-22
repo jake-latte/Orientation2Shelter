@@ -7,65 +7,37 @@ from build import *
 from test_funcs import *
 
 default_params = {
-    'max_angles_per_trial': 20,
-    'pulse_length': 5
+    'init_duration': 10,
 }
 
 input_map = {
-    'sin_angle': 0,
-    'cos_angle': 1,
+    'sin_theta': 0,
+    'cos_theta': 1,
     'r': 2
 }
 
 target_map = {
-    'x': 0,
-    'y': 1,
-    'z': 2
+    'theta': 0,
+    'r': 1
 }
 
 def create_data(config, inputs, targets, mask):
-    
-    for trial in range(inputs.shape[0]):
-        n_angles = torch.randint(0, config.max_angles_per_trial, (1,))
-        angle_times = torch.randint(0, config.n_timesteps, (n_angles,)).sort()[0]
-        angle_vals = 2*np.pi*torch.rand((n_angles,))
-        angle_out = torch.zeros((config.n_timesteps,))
+    batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
+    init_duration = config.init_duration
 
-        n_r = torch.randint(0, config.max_angles_per_trial, (1,))
-        r_times = torch.randint(0, config.n_timesteps, (n_r,)).sort()[0]
-        r_vals = 2*torch.rand((n_r,)) - 1
-        r_out = torch.zeros((config.n_timesteps,))
+    theta_vals = 2*np.pi*torch.rand((batch_size,))
+    r_vals = 2*torch.rand((batch_size,)) - 1
 
-        for i in range(n_angles):
-            this_time = angle_times[i]
-            this_angle = angle_vals[i]
-            inputs[trial, this_time:this_time+config.pulse_length, input_map['sin_angle']] = torch.sin(this_angle)
-            inputs[trial, this_time:this_time+config.pulse_length, input_map['cos_angle']] = torch.cos(this_angle)
+    inputs[:,:init_duration,input_map['sin_theta']] = torch.sin(theta_vals).reshape((batch_size,1)).repeat((1,init_duration))
+    inputs[:,:init_duration,input_map['cos_theta']] = torch.cos(theta_vals).reshape((batch_size,1)).repeat((1,init_duration))
+    inputs[:,:init_duration,input_map['r']] = r_vals.reshape((batch_size,1)).repeat((1,init_duration))
 
-            if i < n_angles-1:
-                next_time = angle_times[i+1]
-                angle_out[this_time+config.pulse_length:next_time] = this_angle
-            else:
-                angle_out[this_time+config.pulse_length:] = this_angle
+    mask[:,:init_duration] = False
 
-        for i in range(n_r):
-            this_time = r_times[i]
-            this_r = r_vals[i]
-            inputs[trial, this_time:this_time+config.pulse_length, input_map['r']] = this_r
+    targets[:,:,target_map['theta']] = theta_vals.reshape((batch_size,1)).repeat((1,n_timesteps))
+    targets[:,:,target_map['r']] = r_vals.reshape((batch_size,1)).repeat((1,n_timesteps))
 
-            if i < n_r-1:
-                next_time = r_times[i+1]
-                r_out[this_time+config.pulse_length:next_time] = this_r
-            else:
-                r_out[this_time+config.pulse_length:] = this_r
-
-
-        targets[trial, :, target_map['x']] = torch.sin(angle_out)
-        targets[trial, :, target_map['y']] = torch.cos(angle_out)
-        targets[trial, :, target_map['z']] = r_out
-
-    vars = {}
-
+    vars = {'theta': theta_vals, 'r': r_vals}
 
     return inputs, targets, vars, mask
 

@@ -12,9 +12,10 @@ echo "#SBATCH -t 0-06:00" >> build-$1.sh
 echo "#SBATCH --mail-type=ALL" >> build-$1.sh
 echo "#SBATCH --mail-user=h1d2y6c0e0u4q1z8@gatsbyunit.slack.com" >> build-$1.sh
 
-echo "cd /nfs/ghome/live/jlaherty/Orientation2Shelter" >> build-$1.sh
+echo "cd /ceph/scratch/jlaherty/Orientation2Shelter" >> build-$1.sh
 echo "source /etc/profile.d/modules.sh" >> build-$1.sh
 echo "module load miniconda" >> build-$1.sh
+echo "conda run -p /nfs/ghome/live/jlaherty/anaconda3/envs/O2S python3 -m pip install -e ." >> build-$1.sh
 
 savedir=""
 

@@ -2,19 +2,19 @@
 
 touch build-$1.sh
 echo "#!/bin/bash" >> build-$1.sh
-echo "#SRUN -J build-$1" >> build-$1.sh
-echo "#SRUN -p gpu" >> build-$1.sh
-echo "#SRUN -N 1" >> build-$1.sh
-echo "#SRUN -n 4" >> build-$1.sh
-echo "#SRUN --mem 16G" >> build-$1.sh
-echo "#SRUN --gres gpu:1" >> build-$1.sh
-echo "#SRUN -t 0-06:00" >> build-$1.sh
-echo "#SRUN --mail-type=ALL" >> build-$1.sh
-echo "#SRUN --mail-user=h1d2y6c0e0u4q1z8@gatsbyunit.slack.com" >> build-$1.sh
+echo "#SBATCH -J build-$1" >> build-$1.sh
+echo "#SBATCH -p gpu" >> build-$1.sh
+echo "#SBATCH -N 1" >> build-$1.sh
+echo "#SBATCH -n 4" >> build-$1.sh
+echo "#SBATCH --mem 16G" >> build-$1.sh
+echo "#SBATCH --gres gpu:1" >> build-$1.sh
+echo "#SBATCH -t 0-06:00" >> build-$1.sh
+echo "#SBATCH --mail-type=ALL" >> build-$1.sh
+echo "#SBATCH --mail-user=h1d2y6c0e0u4q1z8@gatsbyunit.slack.com" >> build-$1.sh
 
+echo "cd /nfs/ghome/live/jlaherty/Orientation2Shelter" >> build-$1.sh
 echo "source /etc/profile.d/modules.sh" >> build-$1.sh
 echo "module load miniconda" >> build-$1.sh
-echo "conda activate /nfs/ghome/live/jlaherty/anaconda3/envs/O2S" >> build-$1.sh
 
 savedir=""
 
@@ -37,12 +37,12 @@ if [ ! -d "$savedir" ]; then
 fi
 
 if [ -n "$savedir" ]; then
-  echo "python3 -m build -wandb $@ > $savedir/build-$1.out" >> build-$1.sh
+  echo "conda run -p /nfs/ghome/live/jlaherty/anaconda3/envs/O2S python3 -m o2s.build $@ -wandb > $savedir/build-$1.out" >> build-$1.sh
 else
-  echo "python3 -m build -wandb $@ > build-$1.out" >> build-$1.sh
+  echo "conda run -p /nfs/ghome/live/jlaherty/anaconda3/envs/O2S python3 -m o2s.build $@ -wandb > build-$1.out" >> build-$1.sh
 fi
 
-srun build-$1.sh
+sbatch build-$1.sh
 rm build-$1.sh
 
 

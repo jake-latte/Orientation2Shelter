@@ -12,9 +12,22 @@ target_map = {
     'cos_sd': 1,
 }
 
-def create_data(config, vars, inputs, targets, mask):
+task_specific_params = {
+    **template_0D.default_params,
     
-    inputs, mask = template_0D.fill_inputs(config, vars,inputs, mask)
+}
+
+def create_data(config, vars, inputs, targets, mask):
+    batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
+    init_duration = config.init_duration
+    
+    inputs[:,:,template_0D.input_map['av']] = vars['av']
+    inputs[:,:,template_0D.input_map['sin_hd_0']] = torch.sin(vars['hd'][:,0]).reshape((batch_size,1)).repeat((1,init_duration))
+    inputs[:,:,template_0D.input_map['cos_hd_0']] = torch.cos(vars['hd'][:,0]).reshape((batch_size,1)).repeat((1,init_duration))
+    inputs[:,:,template_0D.input_map['sx']] = vars['sx'].reshape((batch_size,1)).repeat((1,init_duration))
+    inputs[:,:,template_0D.input_map['sy']] = vars['sy'].reshape((batch_size,1)).repeat((1,init_duration))
+
+    mask[:,:init_duration] = False
 
     targets[:,:,target_map['sin_sd']] = torch.sin(vars['sd'])
     targets[:,:,target_map['cos_sd']] = torch.cos(vars['sd'])
@@ -23,7 +36,7 @@ def create_data(config, vars, inputs, targets, mask):
 
 
 
-SD_0D_TASK = o2s.task.Task('SD-0D',
+SD_0D_PERSISTENT_TASK = o2s.task.Task('SD-0D_persistent',
                     task_specific_params=template_0D.default_params, 
                     get_vars_func=template_0D.get_vars,
                     create_data_func=create_data,

@@ -1,0 +1,102 @@
+import torch
+import numpy as np
+import sys
+from typing import Dict
+
+import o2s
+
+import o2s.Templates.vars_0D as template_0D
+import o2s.Templates.vars_EC as template_EC
+
+input_map = {
+    'av': 0
+}
+
+target_map = {
+    'sin_sd': 0,
+    'cos_sd': 1,
+}
+
+default_params = {
+    **template_0D.default_params,
+    'n_position_place_cells': 0,
+    'n_shelter_place_cells': 25,
+    'n_head_direction_cells': 25,
+    'head_direction_cell_scale': template_EC.default_params['head_direction_cell_scale'],
+    'place_cell_scale': template_EC.default_params['place_cell_scale'],
+    'intermediate_output_dim': 25
+}
+
+def fill_persistent_head_direction_cell_inputs(config: o2s.config.Config, vars: Dict[str, torch.Tensor], inputs: torch.Tensor) -> torch.Tensor:
+    init_duration, batch_size = config.init_duration, inputs.shape[0]
+
+    head_direction = vars['hd']
+
+    inputs[:,:,-config.n_head_direction_cells:] = template_EC.HD_activity(
+        Theta=head_direction, 
+        mu_h=config.head_direction_cell_centers.to(head_direction.device), scale=config.head_direction_cell_scale) 
+    
+    return inputs
+
+def fill_persistent_place_cell_inputs(config: o2s.config.Config, vars: Dict[str, torch.Tensor], inputs: torch.Tensor) -> torch.Tensor:
+    init_duration, batch_size, n_timesteps = config.init_duration, inputs.shape[0], inputs.shape[1]
+
+    sx = vars['sx'].reshape((batch_size,1)).repeat((1,n_timesteps))
+    sy = vars['sy'].reshape((batch_size,1)).repeat((1,n_timesteps))
+
+    if 'x' in vars and 'y' not in vars:
+        x = torch.cos(vars['x'])
+        y = torch.sin(vars['x'])
+    elif 'x' in vars and 'y' in vars:
+        x = vars['x']
+        y = vars['y']
+    else:
+        x, y = None, None
+        assert config.n_position_place_cells == 0
+
+    if config.n_position_place_cells > 0:
+        start_i = config.n_other_inputs
+        end_i = config.n_other_inputs + config.n_position_place_cells
+        inputs[:,:,start_i:end_i] = template_EC.PC_activity(X=x, Y=y, mu_c=config.position_place_cell_centers.to(x.device), sigma_c=config.place_cell_scale)
+    if config.n_shelter_place_cells > 0:
+        start_i = config.n_other_inputs + config.n_position_place_cells
+        end_i = config.n_other_inputs + config.n_position_place_cells + config.n_shelter_place_cells
+        inputs[:,:,start_i:end_i] = template_EC.PC_activity(X=sx, Y=sy, mu_c=config.shelter_place_cell_centers.to(sx.device), sigma_c=config.place_cell_scale)
+    
+    return inputs
+
+
+def create_data(config, vars, inputs, targets, mask):
+    init_duration, batch_size = config.init_duration, inputs.shape[0]
+
+    inputs = fill_persistent_head_direction_cell_inputs(config, vars, inputs)
+    inputs = fill_persistent_place_cell_inputs(config, vars, inputs)
+
+    mask[:,:init_duration] = False
+
+    inputs[:,:,input_map['av']] = vars['av']
+
+    targets[:,:,target_map['sin_sd']] = torch.sin(vars['sd'])
+    targets[:,:,target_map['cos_sd']] = torch.cos(vars['sd'])
+
+    return inputs, targets, mask
+
+
+
+SD_0D_EC_persistent_TASK = o2s.task.Task('SD-0D_EC_persistent',
+                    task_specific_params=default_params,
+                    get_vars_func=template_0D.get_vars, 
+                    create_data_func=create_data,
+                    init_func=template_EC.init_func,
+                    input_map=input_map,
+                    target_map=target_map,
+                    test_func=o2s.test.test_tuning,
+                    test_func_args=dict(tuning_vars_list=['HD', 'ego_SD', 'allo_SD', 'AV', 'HD']),
+                    get_subtask_vars_funcs={'joint': template_0D.get_joint_vars,
+                                            'hd_iso': template_0D.get_hd_iso_vars,
+                                            'sd_iso': template_0D.get_sd_iso_vars,
+                                            'av': template_0D.get_av_vars,
+                                            'metric': template_0D.get_metric_vars})
+
+
+

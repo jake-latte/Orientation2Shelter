@@ -1,0 +1,16 @@
+README.md
+pyproject.toml
+src/o2s/__init__.py
+src/o2s/analyse.py
+src/o2s/build.py
+src/o2s/config.py
+src/o2s/data.py
+src/o2s/hessianfree.py
+src/o2s/net.py
+src/o2s/search.py
+src/o2s/task.py
+src/o2s/train.py
+src/o2s.egg-info/PKG-INFO
+src/o2s.egg-info/SOURCES.txt
+src/o2s.egg-info/dependency_links.txt
+src/o2s.egg-info/top_level.txt

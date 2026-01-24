@@ -1,15 +1,19 @@
 #!/bin/bash
 
+touch build-$1.sh
+echo "#!/bin/bash" >> build-$1.sh
+echo "#SRUN -J build-$1" >> build-$1.sh
+echo "#SRUN -p gpu" >> build-$1.sh
+echo "#SRUN -N 1" >> build-$1.sh
+echo "#SRUN -n 4" >> build-$1.sh
+echo "#SRUN --mem 16G" >> build-$1.sh
+echo "#SRUN --gres gpu:1" >> build-$1.sh
+echo "#SRUN -t 0-06:00" >> build-$1.sh
+echo "#SRUN --mail-type=ALL" >> build-$1.sh
+echo "#SRUN --mail-user=h1d2y6c0e0u4q1z8@gatsbyunit.slack.com" >> build-$1.sh
 
-touch build-$1.pbs
-echo "#!/bin/bash" >> build-$1.pbs
-echo "#PBS -P DATA3888" >> build-$1.pbs
-echo "#PBS -l select=1:ncpus=4:ngpus=1:mem=16GB" >> build-$1.pbs
-echo "#PBS -l walltime=48:00:00" >> build-$1.pbs
-echo "#PBS -N $1" >> build-$1.pbs
-echo "cd /project/DATA3888/gatsby/cueva" >> build-$1.pbs
-echo "module load python/3.8.2 magma/2.5.3" >> build-$1.pbs
-
+echo "module load tensorflow" >> build-$1.sh
+echo "module load cuda/11.8" >> build-$1.sh
 
 savedir=""
 
@@ -32,12 +36,12 @@ if [ ! -d "$savedir" ]; then
 fi
 
 if [ -n "$savedir" ]; then
-  echo "python3 -m build $@ > $savedir/build-$1.out" >> build-$1.pbs
+  echo "python3 -m build $@ > $savedir/build-$1.out" >> build-$1.sh
 else
-  echo "python3 -m build $@ > build-$1.out" >> build-$1.pbs
+  echo "python3 -m build $@ > build-$1.out" >> build-$1.sh
 fi
 
-qsub build-$1.pbs
-rm build-$1.pbs
+srun build-$1.sh
+rm build-$1.sh
 
 

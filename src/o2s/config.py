@@ -272,5 +272,5 @@ default_params = {
 
     'conserve_vram': False,
     'output_dim': 0,
-    'solver': 'euler',
+    'solver': 'rk4',
 }

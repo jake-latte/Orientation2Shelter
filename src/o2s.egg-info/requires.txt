@@ -1,0 +1,10 @@
+matplotlib
+numpy
+pandas
+pillow
+psutil
+scikit-learn
+scipy
+torch
+umap-learn
+wandb

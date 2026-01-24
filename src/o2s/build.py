@@ -378,7 +378,7 @@ def build_from_command_line():
         task_name = args[1]
         subtask_name = None
 
-    importlib.import_module(f'Tasks.{task_name.replace("-", "_")}')
+    importlib.import_module(f'o2s.Tasks.{task_name.replace("-", "_")}')
 
     # Extract task object from first argument
     task = None

@@ -7,7 +7,18 @@ name = "o2s"
 version = "0.0.0"
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = []
+dependencies = [
+  "matplotlib",
+  "numpy",
+  "pandas",
+  "pillow",
+  "psutil",
+  "scikit-learn",
+  "scipy",
+  "torch",
+  "umap-learn",
+  "wandb",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

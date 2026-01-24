@@ -17,6 +17,7 @@ _pkg_dir = Path(__file__).resolve().parent
 
 # task must be imported before build (because build depends on Task)
 PRIORITY = ["task", "net"]
+EXCLUDE = {"build"}
 
 def _export_public(mod):
     """
@@ -67,6 +68,8 @@ for m in iter_modules([str(_pkg_dir)]):
     if m.name.startswith("_"):
         continue
     if m.name in _seen:
+        continue
+    if m.name in EXCLUDE:
         continue
     if m.name == "__init__":
         continue

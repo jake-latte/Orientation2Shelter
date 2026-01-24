@@ -3,6 +3,16 @@ Name: o2s
 Version: 0.0.0
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+Requires-Dist: matplotlib
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: pillow
+Requires-Dist: psutil
+Requires-Dist: scikit-learn
+Requires-Dist: scipy
+Requires-Dist: torch
+Requires-Dist: umap-learn
+Requires-Dist: wandb
 
 # Orientation To Shelter
 

@@ -95,6 +95,8 @@ def fill_inputs(config: o2s.config.Config, vars: Dict[str, torch.Tensor], inputs
 
     return inputs, mask
 
-
-
-
+class Vars1D(o2s.task.Task):
+    default_params = default_params
+    input_map = input_map
+    get_vars_func = staticmethod(get_vars)
+    fill_inputs = staticmethod(fill_inputs)

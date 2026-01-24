@@ -187,3 +187,14 @@ def get_metric_vars(config):
         'av': torch.zeros((batch_size, n_timesteps))
     }
     return vars
+
+class Vars0D(o2s.task.Task):
+    default_params = default_params
+    input_map = input_map
+    get_vars_func = staticmethod(get_vars)
+    fill_inputs = staticmethod(fill_inputs)
+    get_joint_vars = staticmethod(get_joint_vars)
+    get_hd_iso_vars = staticmethod(get_hd_iso_vars)
+    get_sd_iso_vars = staticmethod(get_sd_iso_vars)
+    get_av_vars = staticmethod(get_av_vars)
+    get_metric_vars = staticmethod(get_metric_vars)

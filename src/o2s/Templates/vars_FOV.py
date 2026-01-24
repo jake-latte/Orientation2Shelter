@@ -20,3 +20,5 @@ def add_fov_var(config, vars):
     vars['shelter_in_FOV'] = shelter_in_fov
     return vars
 
+class VarsFOV(o2s.task.Task):
+    default_params = default_params

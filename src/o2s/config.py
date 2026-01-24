@@ -219,9 +219,9 @@ default_params = {
     # Number of processes to use concurrently for data generation
     'num_loader_workers': 4,
     # Parameters for assessing training convergence
-    'training_threshold': 0.0,
-    'training_convergence_std_threshold': 10e-3,
-    'training_convergence_std_threshold_window': 5000,
+    'training_threshold': 0.01,
+    'training_convergence_std_threshold': 10e-2,
+    'training_convergence_std_threshold_window': 1000,
     # Save directory for model checkpoints
     'savedir': 'trained-models',
     # Flag indicating whether untrained model should be saved

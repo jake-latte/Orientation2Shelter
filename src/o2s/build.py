@@ -563,7 +563,7 @@ def build_from_command_line():
                     task.config.make_name(include=name_param_keys)
 
             if task.init_func is not None:
-                task.init_func(task)
+                task.init_func()
 
             build(task, net=net, optimiser=optimiser, train_losses=train_losses, test_losses=test_losses, use_wandb=use_wandb)
 

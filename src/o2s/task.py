@@ -19,10 +19,6 @@ import numpy as np
 # See 'Tasks' directory for instances                                                                                                      #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
-# Global registry of tasks 
-# Keys are task names, values are global task objecs (see any file in Tasks directory)
-task_register = {}
-
 class Task:
     '''
     __init__
@@ -50,9 +46,6 @@ class Task:
             Addional arguments to be supplied to the testing function
         init_func (optional) :
             Function called at init for config-dependent setup
-        register (default=True) :
-            Flag indicating whether or not Task instance should be added to task_register
-            In general, should be True for global Task objects and False for local copies
     '''
     def __init__(self, 
                  name: str,
@@ -66,7 +59,6 @@ class Task:
                  test_func: Callable[['Task', 'RNN', dict], Dict[str, matplotlib.figure.Figure]] = None, 
                  test_func_args:dict = {}, 
                  init_func: Callable[['Task'], Any] = None, 
-                 register: bool = True,
                  config: Config = None,
                  get_subtask_vars_funcs: Dict[str, Callable[[Config], dict]]=None) -> None:
         
@@ -86,7 +78,7 @@ class Task:
         # Save default/supplied functions
         self.init_func = init_func
         if init_func is not None:
-            init_func(self)
+            init_func()
 
         if loss_func is not None:
             self.loss_func = loss_func
@@ -102,18 +94,9 @@ class Task:
 
         self.get_subtask_vars_funcs = get_subtask_vars_funcs
 
-        # Register if desired
-        if register:
-            self.register()
-
     # Wrapper function for calling loss function
     def get_loss(self, net: 'RNN', batch: dict):
         return self.loss_func(task=self, net=net, batch=batch)
-
-    # Add this object to global task register
-    def register(self):
-        global task_register
-        task_register[self.name] = self
 
     # Create a copy of this object (usually to make a local copy of a global (i.e. registered) task object)
     def copy(self, **kwargs) -> Any:
@@ -126,7 +109,7 @@ class Task:
             create_data_func=self.create_data_func, init_func=self.init_func, loss_func=self.loss_func, 
             test_func=self.test_func, test_func_args=self.test_func_args, 
             input_map=self.input_map, target_map=self.target_map,
-            register=False, config=copy_config, get_subtask_vars_funcs=self.get_subtask_vars_funcs
+            config=copy_config, get_subtask_vars_funcs=self.get_subtask_vars_funcs
         )
         task_args.update(**{k:v for k,v in kwargs.items() if k in task_args})
         copy = Task(**task_args)
@@ -135,25 +118,29 @@ class Task:
     # Create an instance of a task from that saved in a checkpoint
     @classmethod
     def from_checkpoint(self, checkpoint: dict) -> Any:
-        global task_register
         if not torch.cuda.is_available():
             checkpoint['config']['device'] = 'cpu'
         if ':' in checkpoint['config']['task']:
             task_name, subtask_name = checkpoint['config']['task'].split(':')
-            task = task_register[task_name].get_subtask(subtask_name, **checkpoint['config'])
+            task = Task.named(task_name, **checkpoint['config']).get_subtask(subtask_name, **checkpoint['config'])
             return task
         else:
-            task = task_register[checkpoint['config']['task']].copy(**checkpoint['config'])
+            task = Task.named(checkpoint['config']['task'], **checkpoint['config'])
         return task
     
     @classmethod
     def named(self, tname: str, **kwargs) -> Any:
-        global task_register
-        if tname in task_register:
-            task = task_register[tname].copy(**kwargs)
-            return task
-        else:
-            raise Exception(f'No task named {tname}')
+        def _iter_task_subclasses(base):
+            for cls in base.__subclasses__():
+                yield cls
+                yield from _iter_task_subclasses(cls)
+
+        for cls in _iter_task_subclasses(Task):
+            cls_name = getattr(cls, "task_name", None)
+            if cls_name == tname:
+                return cls(**kwargs)
+
+        raise Exception(f'No task named {tname}')
         
     def get_subtask(self, subtask_name: str, **kwargs) -> Any:
         if subtask_name in self.get_subtask_vars_funcs:

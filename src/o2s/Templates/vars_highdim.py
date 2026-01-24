@@ -25,7 +25,6 @@ def init_func(task):
     for i in range(config.n_transformed_outputs):
         task.target_map[f'transformed_{i+1}'] = i
 
-
-
-
-
+class VarsHighdim(o2s.task.Task):
+    default_params = default_params
+    init_func = staticmethod(init_func)

@@ -15,6 +15,7 @@ class SD_0D_persistent(template_0D.Vars0D):
     }
     task_specific_params = {
         **template_0D.default_params,
+        'input_noise_std': 0.1
     }
     test_func = o2s.test.test_gamut
     test_func_args = dict(tuning_vars_list=['HD', 'ego_SD', 'allo_SD', 'AV'])
@@ -23,12 +24,22 @@ class SD_0D_persistent(template_0D.Vars0D):
     def create_data(config, vars, inputs, targets, mask):
         batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
         init_duration = config.init_duration
+        input_noise_std = config.input_noise_std
+
+        sin_hd_0_noise =  torch.normal(mean=0, std=input_noise_std, size=(batch_size, n_timesteps))
+        sin_hd_0_noise[:,:init_duration] = 0
+        cos_hd_0_noise =  torch.normal(mean=0, std=input_noise_std, size=(batch_size, n_timesteps))
+        cos_hd_0_noise[:,:init_duration] = 0
+        sx_noise =  torch.normal(mean=0, std=input_noise_std, size=(batch_size, n_timesteps))
+        sx_noise[:,:init_duration] = 0
+        sy_noise =  torch.normal(mean=0, std=input_noise_std, size=(batch_size, n_timesteps))
+        sy_noise[:,:init_duration] = 0
         
         inputs[:,:,template_0D.input_map['av']] = vars['av']
-        inputs[:,:,template_0D.input_map['sin_hd_0']] = torch.sin(vars['hd'][:,0])
-        inputs[:,:,template_0D.input_map['cos_hd_0']] = torch.cos(vars['hd'][:,0])
-        inputs[:,:,template_0D.input_map['sx']] = vars['sx'].reshape((batch_size,1)).repeat((1,n_timesteps))
-        inputs[:,:,template_0D.input_map['sy']] = vars['sy'].reshape((batch_size,1)).repeat((1,n_timesteps))
+        inputs[:,:,template_0D.input_map['sin_hd_0']] = torch.sin(vars['hd'] + sin_hd_0_noise)
+        inputs[:,:,template_0D.input_map['cos_hd_0']] = torch.cos(vars['hd'] + cos_hd_0_noise)
+        inputs[:,:,template_0D.input_map['sx']] = vars['sx'].reshape((batch_size,1)).repeat((1,n_timesteps)) + sx_noise
+        inputs[:,:,template_0D.input_map['sy']] = vars['sy'].reshape((batch_size,1)).repeat((1,n_timesteps)) + sy_noise
 
         mask[:,:init_duration] = False
 

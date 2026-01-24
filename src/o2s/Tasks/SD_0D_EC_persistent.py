@@ -22,7 +22,7 @@ class SD_0D_EC_persistent(template_0D.Vars0D, template_EC.VarsEC):
         'n_head_direction_cells': 25,
         'head_direction_cell_scale': template_EC.default_params['head_direction_cell_scale'],
         'place_cell_scale': template_EC.default_params['place_cell_scale'],
-        'intermediate_output_dim': 25
+        'input_noise_std': 0.1
     }
     get_vars = staticmethod(template_0D.get_vars)
     get_joint_vars = staticmethod(template_0D.get_joint_vars)
@@ -40,18 +40,22 @@ class SD_0D_EC_persistent(template_0D.Vars0D, template_EC.VarsEC):
         init_duration, batch_size = config.init_duration, inputs.shape[0]
 
         def fill_persistent_head_direction_cell_inputs(config: o2s.config.Config, vars: Dict[str, torch.Tensor], inputs: torch.Tensor) -> torch.Tensor:
-            init_duration, batch_size = config.init_duration, inputs.shape[0]
+            batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
+            init_duration, input_noise_std = config.init_duration, config.input_noise_std
         
             head_direction = vars['hd']
+            head_direction_noise = torch.normal(mean=0, std=input_noise_std, size=(batch_size, n_timesteps))
+            head_direction_noise[:,:init_duration] = 0
         
             inputs[:,:,-config.n_head_direction_cells:] = template_EC.HD_activity(
-                Theta=head_direction, 
+                Theta=head_direction + head_direction_noise, 
                 mu_h=config.head_direction_cell_centers.to(head_direction.device), scale=config.head_direction_cell_scale) 
             
             return inputs
         
         def fill_persistent_place_cell_inputs(config: o2s.config.Config, vars: Dict[str, torch.Tensor], inputs: torch.Tensor) -> torch.Tensor:
-            init_duration, batch_size, n_timesteps = config.init_duration, inputs.shape[0], inputs.shape[1]
+            batch_size, n_timesteps = inputs.shape[0], inputs.shape[1]
+            init_duration, input_noise_std = config.init_duration, config.input_noise_std
         
             sx = vars['sx'].reshape((batch_size,1)).repeat((1,n_timesteps))
             sy = vars['sy'].reshape((batch_size,1)).repeat((1,n_timesteps))
@@ -65,15 +69,20 @@ class SD_0D_EC_persistent(template_0D.Vars0D, template_EC.VarsEC):
             else:
                 x, y = None, None
                 assert config.n_position_place_cells == 0
+
+            x_noise = torch.normal(mean=0, std=input_noise_std, size=(batch_size, n_timesteps))
+            x_noise[:,:init_duration] = 0
+            y_noise = torch.normal(mean=0, std=input_noise_std, size=(batch_size, n_timesteps))
+            y_noise[:,:init_duration] = 0
         
             if config.n_position_place_cells > 0:
                 start_i = config.n_other_inputs
                 end_i = config.n_other_inputs + config.n_position_place_cells
-                inputs[:,:,start_i:end_i] = template_EC.PC_activity(X=x, Y=y, mu_c=config.position_place_cell_centers.to(x.device), sigma_c=config.place_cell_scale)
+                inputs[:,:,start_i:end_i] = template_EC.PC_activity(X=x + x_noise, Y=y + y_noise, mu_c=config.position_place_cell_centers.to(x.device), sigma_c=config.place_cell_scale)
             if config.n_shelter_place_cells > 0:
                 start_i = config.n_other_inputs + config.n_position_place_cells
                 end_i = config.n_other_inputs + config.n_position_place_cells + config.n_shelter_place_cells
-                inputs[:,:,start_i:end_i] = template_EC.PC_activity(X=sx, Y=sy, mu_c=config.shelter_place_cell_centers.to(sx.device), sigma_c=config.place_cell_scale)
+                inputs[:,:,start_i:end_i] = template_EC.PC_activity(X=sx + x_noise, Y=sy + y_noise, mu_c=config.shelter_place_cell_centers.to(sx.device), sigma_c=config.place_cell_scale)
             
             return inputs
     

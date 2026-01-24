@@ -57,7 +57,11 @@ def print_memory_usage():
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # Testing functions for appraisal of tuning and geometry and performance of trained o2s.net.RNNs                                                   #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-def test_gamut(checkpoint_path, device='cpu',
+
+
+def test_gamut(task=None, net=None, batch=None,
+               checkpoint_path=None, 
+               device='cpu',
                subtask_batch_size=10000, subtask_n_timesteps=510,
                include_umap=True, umap_select_t=[0, 9, 249, 499],
                include_dimensionality=True, dimensionality_prop_explained=0.8, dimensionality_var_explained=0.8,
@@ -76,8 +80,7 @@ def test_gamut(checkpoint_path, device='cpu',
     checkpoint = torch.load(checkpoint_path, map_location=device)
     task = o2s.task.Task.from_checkpoint(checkpoint=checkpoint)
     alpha = task.config.dt / task.config.tau
-    task.config.update(device=device, repeat_input=None, tau=1, dt=alpha, rank=0 if task.config.rank is None else int(task.config.rank),
-                       solver='euler')
+    task.config.update(device=device, repeat_input=None, tau=1, dt=alpha, rank=0 if task.config.rank is None else int(task.config.rank))
     torch.set_default_dtype(torch.float64 if task.config.precise else torch.float32)
     net = o2s.net.RNN(task)
     # net.load_state_dict(checkpoint['net_state_dict'])

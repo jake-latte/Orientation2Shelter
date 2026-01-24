@@ -184,7 +184,7 @@ def build(task: o2s.task.Task, net: o2s.net.RNN = None, optimiser: torch.optim.O
         # If testing, use task-specific testing function to generate plots and save them to checkpoint
         if test:
             with torch.no_grad():
-                test_result = task.test_func(task=task, net=net, batch=test_batch, checkpoint_path=checkpoint_filepath, **task.test_func_args)
+                test_result = task.test_func(net=net, batch=test_batch, checkpoint_path=checkpoint_filepath, **task.test_func_args)
 
                 if test_result is not None:
                     if use_wandb and wandb_run is not None:
@@ -315,6 +315,8 @@ def build(task: o2s.task.Task, net: o2s.net.RNN = None, optimiser: torch.optim.O
                         'gpu_mem_allocated_mb': torch.cuda.memory_allocated(device_index) / 1024**2,
                         'gpu_mem_reserved_mb': torch.cuda.memory_reserved(device_index) / 1024**2,
                     })
+            if len(train_losses) >= config.training_convergence_std_threshold_window:
+                stats['loss_std'] = np.std(train_losses[-config.training_convergence_std_threshold_window:])
             wandb.log(stats)
 
         # Save conditions

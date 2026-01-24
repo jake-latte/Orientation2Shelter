@@ -60,7 +60,8 @@ class Task:
                  test_func_args:dict = {}, 
                  init_func: Callable[['Task'], Any] = None, 
                  config: Config = None,
-                 get_subtask_vars_funcs: Dict[str, Callable[[Config], dict]]=None) -> None:
+                 get_subtask_vars_funcs: Dict[str, Callable[[Config], dict]] = None,
+                 kwargs: Dict[str, Any] = None) -> None:
         
         self.name = name
         self.task_specific_params = task_specific_params
@@ -93,6 +94,10 @@ class Task:
         self.test_func_args = test_func_args
 
         self.get_subtask_vars_funcs = get_subtask_vars_funcs
+
+        if kwargs is not None:
+            for key, value in kwargs.items():
+                self.__dict__[key] = value
 
     # Wrapper function for calling loss function
     def get_loss(self, net: 'RNN', batch: dict):
@@ -138,7 +143,11 @@ class Task:
         for cls in _iter_task_subclasses(Task):
             cls_name = getattr(cls, "task_name", None)
             if cls_name == tname:
-                return cls(**kwargs)
+                task = cls()
+                if kwargs is not None:
+                    for key, value in kwargs.items():
+                        task.__dict__[key] = value
+                return task
 
         raise Exception(f'No task named {tname}')
         

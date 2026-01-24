@@ -12,8 +12,9 @@ echo "#SRUN -t 0-06:00" >> build-$1.sh
 echo "#SRUN --mail-type=ALL" >> build-$1.sh
 echo "#SRUN --mail-user=h1d2y6c0e0u4q1z8@gatsbyunit.slack.com" >> build-$1.sh
 
-echo "module load tensorflow" >> build-$1.sh
-echo "module load cuda/11.8" >> build-$1.sh
+echo "source /etc/profile.d/modules.sh" >> build-$1.sh
+echo "module load miniconda" >> build-$1.sh
+echo "conda activate /nfs/ghome/live/jlaherty/anaconda3/envs/O2S" >> build-$1.sh
 
 savedir=""
 
@@ -36,9 +37,9 @@ if [ ! -d "$savedir" ]; then
 fi
 
 if [ -n "$savedir" ]; then
-  echo "python3 -m build $@ > $savedir/build-$1.out" >> build-$1.sh
+  echo "python3 -m build -wandb $@ > $savedir/build-$1.out" >> build-$1.sh
 else
-  echo "python3 -m build $@ > build-$1.out" >> build-$1.sh
+  echo "python3 -m build -wandb $@ > build-$1.out" >> build-$1.sh
 fi
 
 srun build-$1.sh

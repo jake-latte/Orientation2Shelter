@@ -78,7 +78,7 @@ def test_gamut(task=None, net=None, batch=None,
 
     checkpoint = torch.load(checkpoint_path, map_location='cpu')
     task = o2s.task.Task.from_checkpoint(checkpoint=checkpoint)
-    device = task.config.device
+    device = cpu#task.config.device
     if not isinstance(device, torch.device):
         device = torch.device(device)
     alpha = task.config.dt / task.config.tau

@@ -112,7 +112,7 @@ if '-T' in sys.argv:
 
             checkpoint_path = os.path.join(savedir, 'package', build['name'], 'net.pt')
             with torch.no_grad():
-                figures = test_gamut(checkpoint_path, device='cuda' if torch.cuda.is_available() else 'cpu',
+                figures = test_gamut(checkpoint_path,
                                      include_stability=False, include_lesions=False, include_fourier=False, include_eigenspectra=False)
                 del figures
 

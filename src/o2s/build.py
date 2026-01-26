@@ -315,8 +315,7 @@ def build(task: o2s.task.Task, net: o2s.net.RNN = None, optimiser: torch.optim.O
                         'gpu_mem_allocated_mb': torch.cuda.memory_allocated(device_index) / 1024**2,
                         'gpu_mem_reserved_mb': torch.cuda.memory_reserved(device_index) / 1024**2,
                     })
-            if len(train_losses) >= config.training_convergence_std_threshold_window:
-                stats['loss_std'] = np.std(train_losses[-config.training_convergence_std_threshold_window:])
+            stats['loss_std'] = np.std(train_losses)  if len(train_losses) < config.training_convergence_std_threshold_window else np.std(train_losses[-config.training_convergence_std_threshold_window:]) 
             wandb.log(stats)
 
         # Save conditions

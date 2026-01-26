@@ -61,15 +61,14 @@ def print_memory_usage():
 
 def test_gamut(task=None, net=None, batch=None,
                checkpoint_path=None, 
-               device='cpu',
-               subtask_batch_size=10000, subtask_n_timesteps=510,
+               subtask_batch_size=400, subtask_n_timesteps=510,
                include_umap=True, umap_select_t=[0, 9, 249, 499],
                include_dimensionality=True, dimensionality_prop_explained=0.8, dimensionality_var_explained=0.8,
-               include_metric=True, metric_select_tau=[0, 0.01, 1, 10, 25, 49.9], metric_n_samples=100, metric_alpha=0.01, metric_d_theta=1e-6, metric_order=3, metric_dtype=torch.float64, metric_n_instantiations=30, metric_norm_dphi=True,
+               include_metric=True, metric_select_tau=[0, 0.01, 1, 10, 25, 49.9], metric_n_samples=25, metric_alpha=0.01, metric_d_theta=1e-6, metric_order=3, metric_dtype=torch.float64, metric_n_instantiations=30, metric_norm_dphi=True,
                include_trajectories=True, trajectories_select_t=[(10,0,11), (20,0,20), (250,10,499)],
                include_stability=True, stability_n_timesteps=500, stability_total_n_timesteps=5000, stability_slow_mult=10,
                include_lesions=True, lesions_n_lesions=100,
-               include_tuning=True, tuning_batch_size=5000, tuning_vars_list=['HD', 'AV', 'ego_SD', 'allo_SD'],
+               include_tuning=True, tuning_batch_size=400, tuning_vars_list=['HD', 'AV', 'ego_SD', 'allo_SD'],
                include_fourier=True,
                include_eigenspectra=True, eigenspectra_eval_t=250,
                save=True, savedir='figures', return_figures=False):
@@ -77,8 +76,11 @@ def test_gamut(task=None, net=None, batch=None,
     assert max(umap_select_t) < subtask_n_timesteps, "umap_select_t must be less than joint_subtask_n_timesteps"
     assert stability_n_timesteps <= stability_total_n_timesteps, "stability_n_timesteps must be less than or equal to stability_total_n_timesteps"
 
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    checkpoint = torch.load(checkpoint_path, map_location='cpu')
     task = o2s.task.Task.from_checkpoint(checkpoint=checkpoint)
+    device = task.config.device
+    if not isinstance(device, torch.device):
+        device = torch.device(device)
     alpha = task.config.dt / task.config.tau
     task.config.update(device=device, repeat_input=None, tau=1, dt=alpha, rank=0 if task.config.rank is None else int(task.config.rank))
     torch.set_default_dtype(torch.float64 if task.config.precise else torch.float32)
@@ -122,7 +124,8 @@ def test_gamut(task=None, net=None, batch=None,
     subtasks['full'] = (task, batch)
 
     joint_task, joint_batch = subtasks['joint']
-    joint_activity = net(joint_batch['inputs'], repeat_input=joint_task.config.repeat_input, offload=True)[0].cpu().detach()
+    joint_inputs = joint_batch['inputs'].to(device)
+    joint_activity = net(joint_inputs, repeat_input=joint_task.config.repeat_input, offload=True)[0].detach().cpu()
 
     figures = {} if return_figures else None
     if save:
@@ -141,7 +144,6 @@ def test_gamut(task=None, net=None, batch=None,
             if return_figures:
                 figures['umap'] = fig
         except Exception as e:
-            raise e
             print(f' * Error creating UMAP plot: {e}')
 
         print_memory_usage()
@@ -159,7 +161,6 @@ def test_gamut(task=None, net=None, batch=None,
             if return_figures:
                 figures['dimensionality'] = fig
         except Exception as e:
-            raise e
             print(f' * Error calculating dimensionality: {e}')
 
         print_memory_usage()
@@ -179,7 +180,6 @@ def test_gamut(task=None, net=None, batch=None,
             if return_figures:
                 figures['metric'] = fig
         except Exception as e:
-            raise e
             print(f' * Error calculating metrics: {e}')
 
         print_memory_usage()
@@ -195,7 +195,6 @@ def test_gamut(task=None, net=None, batch=None,
             if return_figures:
                 figures['joint_trajectories'] = fig
         except Exception as e:
-            raise e
             print(f' * Error plotting joint trajectories: {e}')
 
         print_memory_usage()
@@ -203,7 +202,8 @@ def test_gamut(task=None, net=None, batch=None,
     if include_trajectories:
         try:
             av_batch = subtasks['av'][1]
-            av_activity = net(av_batch['inputs'], offload=True)[0].detach().cpu()
+            av_inputs = av_batch['inputs'].to(device)
+            av_activity = net(av_inputs, offload=True)[0].detach().cpu()
             av_dim = 4 if dimensionality_results is None else dimensionality_results['dim'][list(task.get_subtask_vars_funcs.keys()).index('av')] 
             fig = plot_av_trajectories(task, net, av_batch, av_activity, dim=av_dim)
             print('AV trajectories plotted')
@@ -214,7 +214,6 @@ def test_gamut(task=None, net=None, batch=None,
             if return_figures:
                 figures['av_trajectories'] = fig
         except Exception as e:
-            raise e
             print(f' * Error plotting angular velocity trajectories: {e}')
 
         print_memory_usage()
@@ -230,7 +229,6 @@ def test_gamut(task=None, net=None, batch=None,
             if return_figures:
                 figures['stability'] = fig
         except Exception as e:
-            raise e
             print(f' * Error plotting stability: {e}')
 
         print_memory_usage()
@@ -259,7 +257,8 @@ def test_gamut(task=None, net=None, batch=None,
             tuning_net.load_state_dict(checkpoint['net_state_dict'])
             tuning_batch = o2s.data.TaskDataset(tuning_task, include_noise=False).get_batch()
             with torch.no_grad():
-                activity = tuning_net(tuning_batch['inputs'], offload=True)[1].detach().cpu().numpy()
+                tuning_inputs = tuning_batch['inputs'].to(device)
+                activity = tuning_net(tuning_inputs, offload=True)[1].detach().cpu().numpy()
             inputs, targets, vars = tuning_batch['inputs'].cpu().numpy(), tuning_batch['targets'].cpu().numpy(), {k: v.cpu().numpy() for k,v in tuning_batch['vars'].items()}
             tuning_vars, tuning_dict = get_tuning_generalised(tuning_task, inputs, targets, vars, activity, tuning_vars_list)
             del inputs, targets, vars, activity
@@ -275,7 +274,6 @@ def test_gamut(task=None, net=None, batch=None,
 
             del tuning_batch, tuning_net
         except Exception as e:
-            raise e
             print(f' * Error loading tuning task: {e}')
 
         print_memory_usage()
@@ -296,7 +294,6 @@ def test_gamut(task=None, net=None, batch=None,
                 figures['tuning_dist'] = fig1
                 figures['tuned_weights'] = fig2
         except Exception as e:
-            raise e
             print(f' * Error fitting tuning curves: {e}')
 
         print_memory_usage()
@@ -312,7 +309,6 @@ def test_gamut(task=None, net=None, batch=None,
             if return_figures:
                 figures['fourier_weights'] = fig
         except Exception as e:
-            raise e
             print(f' * Error plotting Fourier weights: {e}')
 
         print_memory_usage()
@@ -328,7 +324,6 @@ def test_gamut(task=None, net=None, batch=None,
             if return_figures:
                 figures['joint_eigenspectra'] = fig
         except Exception as e:
-            raise e
             print(f' * Error plotting joint eigenspectra: {e}')
 
         print_memory_usage()
@@ -3735,7 +3730,7 @@ if __name__ == '__main__':
     checkpoint_path = sys.argv[1]
 
     plt.clf()
-    test_gamut(checkpoint_path, device='cuda' if torch.cuda.is_available() else 'cpu',
+    test_gamut(checkpoint_path,
                subtask_batch_size=50**2, subtask_n_timesteps=510,
                include_umap=False,
                include_dimensionality=True, dimensionality_prop_explained=1.0, dimensionality_var_explained=0.8,

@@ -127,22 +127,21 @@ def test_gamut(task=None, net=None, batch=None,
     joint_inputs = joint_batch['inputs'].to(device)
     joint_activity = net(joint_inputs, repeat_input=joint_task.config.repeat_input, offload=True)[0].detach().cpu()
 
-    figures = {} if return_figures else None
     if save:
         checkpoint_dir = os.path.dirname(checkpoint_path)
         if not os.path.exists(os.path.join(checkpoint_dir, savedir)):
             os.makedirs(os.path.join(checkpoint_dir, savedir))
 
+    def _yield_fig(name, fig):
+        if save:
+            fig.savefig(os.path.join(checkpoint_dir, savedir, f'{name}.png'))
+        yield name, fig
+
     if include_umap:
         try:
             fig = umap_project(task, umap_select_t, joint_activity, joint_batch['vars'], verbose=False)
             print('UMAP plot created')
-
-            if save:
-                fig.savefig(os.path.join(checkpoint_dir, savedir, f'umap.png'))
-                plt.close(fig)
-            if return_figures:
-                figures['umap'] = fig
+            yield from _yield_fig('umap', fig)
         except Exception as e:
             print(f' * Error creating UMAP plot: {e}')
 
@@ -155,11 +154,7 @@ def test_gamut(task=None, net=None, batch=None,
             fig = plot_task_dimensionality(task, dimensionality_results)
             print('Dimensionality plot created')
 
-            if save:
-                fig.savefig(os.path.join(checkpoint_dir, savedir, f'dimensionality.png'))
-                plt.close(fig)
-            if return_figures:
-                figures['dimensionality'] = fig
+            yield from _yield_fig('dimensionality', fig)
         except Exception as e:
             print(f' * Error calculating dimensionality: {e}')
 
@@ -173,12 +168,7 @@ def test_gamut(task=None, net=None, batch=None,
             fig = plot_metrics(metric_results)
             print('Metrics calculated')
 
-            if save:
-                fig.savefig(os.path.join(checkpoint_dir, savedir, f'metric.png'))
-                print(f'Saved metric plot to {os.path.join(checkpoint_dir, savedir, f"metric.png")}')
-                plt.close(fig)
-            if return_figures:
-                figures['metric'] = fig
+            yield from _yield_fig('metric', fig)
         except Exception as e:
             print(f' * Error calculating metrics: {e}')
 
@@ -189,11 +179,7 @@ def test_gamut(task=None, net=None, batch=None,
             fig = plot_joint_trajectories(task, net, joint_batch, joint_activity, T=trajectories_select_t)
             print('Joint trajectories plotted')
 
-            if save:
-                fig.savefig(os.path.join(checkpoint_dir, savedir, f'joint_trajectories.png'))
-                plt.close(fig)
-            if return_figures:
-                figures['joint_trajectories'] = fig
+            yield from _yield_fig('joint_trajectories', fig)
         except Exception as e:
             print(f' * Error plotting joint trajectories: {e}')
 
@@ -208,11 +194,7 @@ def test_gamut(task=None, net=None, batch=None,
             fig = plot_av_trajectories(task, net, av_batch, av_activity, dim=av_dim)
             print('AV trajectories plotted')
 
-            if save:
-                fig.savefig(os.path.join(checkpoint_dir, savedir, f'av_trajectories.png'))
-                plt.close(fig)
-            if return_figures:
-                figures['av_trajectories'] = fig
+            yield from _yield_fig('av_trajectories', fig)
         except Exception as e:
             print(f' * Error plotting angular velocity trajectories: {e}')
 
@@ -223,11 +205,7 @@ def test_gamut(task=None, net=None, batch=None,
             fig = plot_stability(task, net, subtask_batch_size, total_n_timesteps=stability_total_n_timesteps, n_timesteps=stability_n_timesteps, slow_mult=stability_slow_mult)
             print('Stability plotted')
 
-            if save:
-                fig.savefig(os.path.join(checkpoint_dir, savedir, f'stability.png'))
-                plt.close(fig)
-            if return_figures:
-                figures['stability'] = fig
+            yield from _yield_fig('stability', fig)
         except Exception as e:
             print(f' * Error plotting stability: {e}')
 
@@ -238,11 +216,7 @@ def test_gamut(task=None, net=None, batch=None,
             fig = plot_lesions(task, net, n_lesions=lesions_n_lesions)
             print('Lesions plotted')
 
-            if save:
-                fig.savefig(os.path.join(checkpoint_dir, savedir, f'lesions.png'))
-                plt.close(fig)
-            if return_figures:
-                figures['lesions'] = fig
+            yield from _yield_fig('lesions', fig)
         except Exception as e:
             print(f' * Error plotting lesions: {e}')
 
@@ -265,12 +239,8 @@ def test_gamut(task=None, net=None, batch=None,
             figs = test_tuning(tuning_task, tuning_net, tuning_batch, tuning_vars_list, tuning_vars=tuning_vars, tuning_dict=tuning_dict)
             print('Tuning plots created')
 
-            if save:
-                for name, fig in figs.items():
-                    fig.savefig(os.path.join(checkpoint_dir, savedir, f'{name}.png'))
-                    plt.close(fig)
-            if return_figures:
-                figures.update(figs)
+            for name, fig in figs.items():
+                yield from _yield_fig(name, fig)
 
             del tuning_batch, tuning_net
         except Exception as e:
@@ -285,14 +255,8 @@ def test_gamut(task=None, net=None, batch=None,
             fig2 = plot_tuned_weights(task, net, coefs)
             print('Tuning curves fitted')
 
-            if save:
-                fig1.savefig(os.path.join(checkpoint_dir, savedir, f'tuning_dist.png'))
-                fig2.savefig(os.path.join(checkpoint_dir, savedir, f'tuned_weights.png'))
-                plt.close(fig1)
-                plt.close(fig2)
-            if return_figures:
-                figures['tuning_dist'] = fig1
-                figures['tuned_weights'] = fig2
+            yield from _yield_fig('tuning_dist', fig1)
+            yield from _yield_fig('tuned_weights', fig2)
         except Exception as e:
             print(f' * Error fitting tuning curves: {e}')
 
@@ -303,11 +267,7 @@ def test_gamut(task=None, net=None, batch=None,
             fig = plot_fourier_weights(task, net)
             print('Fourier weights plotted')
 
-            if save:
-                fig.savefig(os.path.join(checkpoint_dir, savedir, f'fourier_weights.png'))
-                plt.close(fig)
-            if return_figures:
-                figures['fourier_weights'] = fig
+            yield from _yield_fig('fourier_weights', fig)
         except Exception as e:
             print(f' * Error plotting Fourier weights: {e}')
 
@@ -318,17 +278,13 @@ def test_gamut(task=None, net=None, batch=None,
             fig = plot_joint_eigenspectra(task, net, joint_task, joint_batch, eval_t=eigenspectra_eval_t)
             print('Joint eigenspectra plotted')
 
-            if save:
-                fig.savefig(os.path.join(checkpoint_dir, savedir, f'joint_eigenspectra.png'))
-                plt.close(fig)
-            if return_figures:
-                figures['joint_eigenspectra'] = fig
+            yield from _yield_fig('joint_eigenspectra', fig)
         except Exception as e:
             print(f' * Error plotting joint eigenspectra: {e}')
 
         print_memory_usage()
     
-    return figures
+
 
 
 
@@ -3730,14 +3686,16 @@ if __name__ == '__main__':
     checkpoint_path = sys.argv[1]
 
     plt.clf()
-    test_gamut(checkpoint_path,
-               subtask_batch_size=50**2, subtask_n_timesteps=510,
-               include_umap=False,
-               include_dimensionality=True, dimensionality_prop_explained=1.0, dimensionality_var_explained=0.8,
-               include_metric=False, metric_select_tau=[0, 0.2, 0.5, 0.8, 1, 1.5, 2, 2.5, 5, 7.5, 10, 15, 25, 49], metric_n_samples=25, metric_alpha=0.1, metric_d_theta=1e-6, metric_order=3, metric_dtype=torch.float64, metric_n_instantiations=0, metric_norm_dphi=False,
-               include_trajectories=False, trajectories_select_t=[(10, 0, 10), (10, 0, 50), (50, 0, 500), (50, 50, 500)],
-               include_stability=False, stability_n_timesteps=200, stability_total_n_timesteps=200, stability_slow_mult=10,
-               include_lesions=False, lesions_n_lesions=25,
-               include_tuning=False, tuning_batch_size=2500, #tuning_vars_list=['HD', 'ego_SD', 'allo_SD', 'AV', 'x','y'],
-               include_fourier=False,
-               include_eigenspectra=False)
+    for _, fig in test_gamut(checkpoint_path,
+                             subtask_batch_size=50**2, subtask_n_timesteps=510,
+                             include_umap=False,
+                             include_dimensionality=True, dimensionality_prop_explained=1.0, dimensionality_var_explained=0.8,
+                             include_metric=False, metric_select_tau=[0, 0.2, 0.5, 0.8, 1, 1.5, 2, 2.5, 5, 7.5, 10, 15, 25, 49], metric_n_samples=25, metric_alpha=0.1, metric_d_theta=1e-6, metric_order=3, metric_dtype=torch.float64, metric_n_instantiations=0, metric_norm_dphi=False,
+                             include_trajectories=False, trajectories_select_t=[(10, 0, 10), (10, 0, 50), (50, 0, 500), (50, 50, 500)],
+                             include_stability=False, stability_n_timesteps=200, stability_total_n_timesteps=200, stability_slow_mult=10,
+                             include_lesions=False, lesions_n_lesions=25,
+                             include_tuning=False, tuning_batch_size=2500, #tuning_vars_list=['HD', 'ego_SD', 'allo_SD', 'AV', 'x','y'],
+                             include_fourier=False,
+                             include_eigenspectra=False):
+        if isinstance(fig, matplotlib.figure.Figure):
+            plt.close(fig)

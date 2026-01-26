@@ -7,6 +7,7 @@ import pandas as pd
 import torch
 import mmap
 import shutil
+import matplotlib.pyplot as plt
 
 from search import search_hyperparameters
 from o2s.Test import test_gamut
@@ -112,9 +113,10 @@ if '-T' in sys.argv:
 
             checkpoint_path = os.path.join(savedir, 'package', build['name'], 'net.pt')
             with torch.no_grad():
-                figures = test_gamut(checkpoint_path,
-                                     include_stability=False, include_lesions=False, include_fourier=False, include_eigenspectra=False)
-                del figures
+                for _, fig in test_gamut(checkpoint_path,
+                                         include_stability=False, include_lesions=False, include_fourier=False, include_eigenspectra=False):
+                    if isinstance(fig, matplotlib.figure.Figure):
+                        plt.close(fig)
 
             gc.collect()
             torch.cuda.empty_cache()

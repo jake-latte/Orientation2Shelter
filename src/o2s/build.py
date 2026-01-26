@@ -186,22 +186,25 @@ def build(task: o2s.task.Task, net: o2s.net.RNN = None, optimiser: torch.optim.O
             with torch.no_grad():
                 test_result = task.test_func(net=net, batch=test_batch, checkpoint_path=checkpoint_filepath, **task.test_func_args)
 
-                if test_result is not None:
-                    if use_wandb and wandb_run is not None:
-                        for plot_name, val in test_result.items():
-                            if isinstance(val, matplotlib.figure.Figure):
-                                wandb.log({f'plot/{plot_name}': wandb.Image(val)})
-                            elif isinstance(val, (list, tuple)):
-                                for idx, fig in enumerate(val):
-                                    if isinstance(fig, matplotlib.figure.Figure):
-                                        wandb.log({f'plot/{plot_name}_{idx}': wandb.Image(fig)})
-                    for val in test_result.values():
-                        if type(val) == matplotlib.figure.Figure:
-                            plt.close(val)
-                        elif isinstance(val, (list, tuple)):
-                            for fig in val:
-                                if isinstance(fig, matplotlib.figure.Figure):
-                                    plt.close(fig)
+                def _iter_figures(result):
+                    if result is None:
+                        return
+                    if isinstance(result, dict):
+                        for name, fig in result.items():
+                            yield name, fig
+                    else:
+                        for item in result:
+                            if isinstance(item, tuple) and len(item) == 2:
+                                yield item
+                            else:
+                                yield None, item
+
+                for plot_name, fig in _iter_figures(test_result) or []:
+                    if isinstance(fig, matplotlib.figure.Figure):
+                        if use_wandb and wandb_run is not None:
+                            key = f'plot/{plot_name}' if plot_name else 'plot/figure'
+                            wandb.log({key: wandb.Image(fig)})
+                        plt.close(fig)
     
     # If so desired (not by default), save initial net
     if config.save_initial_net and len(train_losses)==0:

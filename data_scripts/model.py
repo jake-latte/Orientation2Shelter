@@ -64,14 +64,15 @@ def preds_from_embeds(
     targets: torch.Tensor,
     embed_dim: int,
     l2_lambda: float,
-) -> torch.Tensor:
+    return_weights: bool = False,
+):
     """
     Per-batch ridge regression from embedding space to neuron space.
     Handles NaN targets (neurons absent in a given session).
 
     embeds  : (T, H)  — model output
     targets : (T, N)  — ground truth, NaN where neuron not present
-    returns : (T, N)  — predictions
+    returns : (T, N) predictions [, (N, H) weight matrix if return_weights=True]
     """
     mask = (~torch.isnan(targets)).to(targets.dtype)          # (T, N)
     Y0 = torch.nan_to_num(targets, nan=0.0)                   # (T, N)
@@ -82,7 +83,10 @@ def preds_from_embeds(
     XY = torch.einsum("th,tn,tn->nh", embeds, mask, Y0)       # (N, H)
 
     W = torch.linalg.solve(A, XY.unsqueeze(-1)).squeeze(-1)   # (N, H)
-    return embeds @ W.T                                        # (T, N)
+    preds = embeds @ W.T                                       # (T, N)
+    if return_weights:
+        return preds, W
+    return preds
 
 
 # ---------------------------------------------------------------------------

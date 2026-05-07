@@ -28,7 +28,7 @@ import os
 import sys
 from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import polars as pl
@@ -161,12 +161,18 @@ def run_epoch(
     train: bool,
     optim: Optional[torch.optim.Optimizer] = None,
     prefix: str = "",
-) -> Dict[str, float]:
+    fixed_W: Optional[torch.Tensor] = None,
+) -> Dict[str, Any]:
     """
     One full pass through loader.  Computes loss and variance-explained
     in a single iteration — no second pass needed, which avoids the
     DataLoader multiprocessing freeze that occurred when iterating
     the test loader twice per epoch.
+
+    For narrow mode training: accumulates per-batch ridge regression weights
+    and returns their neuron-presence-weighted average as "W_avg" in the
+    result dict.  For narrow mode evaluation: uses fixed_W (if provided)
+    as a fixed readout matrix instead of fitting new regression weights.
     """
     model.train() if train else model.eval()
 
@@ -176,12 +182,34 @@ def run_epoch(
     remaining_variance = 0.0
     n_batches = 0
 
+    # Narrow-mode training: accumulate readout weights across batches.
+    # W_sum[i]   = sum of W_batch[i] over batches where neuron i was present
+    #              (W_batch[i] == 0 for absent neurons, so sum is uncontaminated)
+    # W_count[i] = number of batches where neuron i was present
+    W_sum: Optional[torch.Tensor] = None
+    W_count: Optional[torch.Tensor] = None
+
     for b, batch in enumerate(loader):
         inputs = batch["inputs"].to(device)
         targets = batch["targets"].to(device)
 
         if train:
-            preds = _forward(model, inputs, targets)
+            if model.output_mode == "narrow":
+                embeds = model(inputs)
+                preds, W_batch = preds_from_embeds(
+                    embeds, targets, model.n_outputs, model.l2_lambda,
+                    return_weights=True,
+                )
+                with torch.no_grad():
+                    if W_sum is None:
+                        W_sum = torch.zeros_like(W_batch)
+                        W_count = torch.zeros(
+                            W_batch.shape[0], device=W_batch.device, dtype=W_batch.dtype
+                        )
+                    W_sum += W_batch.detach()
+                    W_count += (~torch.isnan(targets)).any(dim=0).to(W_batch.dtype)
+            else:
+                preds = model(inputs)
             preds_det = preds.detach()
             mask = ~torch.isnan(targets)
             mse = F.mse_loss(preds[mask], targets[mask])
@@ -194,7 +222,16 @@ def run_epoch(
             optim.zero_grad()
         else:
             with torch.no_grad():
-                preds_det = _forward(model, inputs, targets)
+                if model.output_mode == "narrow":
+                    embeds = model(inputs)
+                    if fixed_W is not None:
+                        preds_det = embeds @ fixed_W.T
+                    else:
+                        preds_det = preds_from_embeds(
+                            embeds, targets, model.n_outputs, model.l2_lambda
+                        )
+                else:
+                    preds_det = model(inputs)
                 mask = ~torch.isnan(targets)
                 mse = F.mse_loss(preds_det[mask], targets[mask])
                 l2 = torch.cat([p.ravel() for p in model.parameters()]).pow(2).mean()
@@ -222,12 +259,21 @@ def run_epoch(
     avg_l2 = total_l2 / max(n_batches, 1)
     var_exp = max(0.0, (total_variance - remaining_variance) / (total_variance + 1e-12))
 
-    return {
+    result: Dict[str, Any] = {
         "mse": avg_mse,
         "l2": avg_l2,
         "loss": avg_mse + model.l2_lambda * avg_l2,
         "var_explained": var_exp,
     }
+
+    # Compute the epoch-average readout matrix: W[i,h] = mean regression weight
+    # of neuron i from embedding dimension h, averaged only over batches where
+    # neuron i was observed.
+    if train and model.output_mode == "narrow" and W_sum is not None:
+        safe_count = W_count.clamp(min=1.0).unsqueeze(-1)  # (N, 1)
+        result["W_avg"] = W_sum / safe_count               # (N, H)
+
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -317,9 +363,13 @@ def train_fold(
         train_stats = run_epoch(
             model, train_loader, config, train=True, optim=optim, prefix=prefix
         )
+        # Extract the epoch-average readout matrix built during training.
+        # For narrow mode this is a (N, H) tensor; None for wide mode.
+        W_avg: Optional[torch.Tensor] = train_stats.pop("W_avg", None)
         print()
         test_stats = run_epoch(
-            model, test_loader, config, train=False, prefix=prefix
+            model, test_loader, config, train=False, prefix=prefix,
+            fixed_W=W_avg,
         )
         print()
 
@@ -365,9 +415,14 @@ def train_fold(
         at_end = epoch == config.epochs - 1
         if at_interval or at_end:
             ckpt_path = os.path.join(fold_dir, f"epoch_{epoch:06d}.pt")
+            extra: Dict[str, Any] = {}
+            if lazy_metric is not None:
+                extra["lazy_metric"] = lazy_metric
+            if W_avg is not None:
+                extra["W_avg"] = W_avg.cpu()
             _save_checkpoint(
                 ckpt_path, epoch, model, optim, config, history,
-                extra={"lazy_metric": lazy_metric} if lazy_metric is not None else None,
+                extra=extra or None,
             )
 
     return history
